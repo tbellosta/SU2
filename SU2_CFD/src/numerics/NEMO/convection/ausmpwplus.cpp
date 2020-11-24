@@ -1,4 +1,4 @@
-/*!
+﻿/*!
  * \file ausmpwplus.cpp
  * \brief Implementations of the AUSM-family of schemes - AUSMPWPLUS.
  * \author F. Palacios, W.Maier, C. Garbacz
@@ -145,9 +145,12 @@ CNumerics::ResidualType<> CUpwAUSMPWplus_NEMO::ComputeResidual(const CConfig *co
   P_i       = V_i[P_INDEX];         P_j       = V_j[P_INDEX];
   h_i       = V_i[H_INDEX];         h_j       = V_j[H_INDEX];
   rho_i     = V_i[RHO_INDEX];       rho_j     = V_j[RHO_INDEX];
-  rhoEve_i  = U_i[nSpecies+nDim+1]; rhoEve_j  = U_j[nSpecies+nDim+1];
   rhoCvtr_i = V_i[RHOCVTR_INDEX];   rhoCvtr_j = V_j[RHOCVTR_INDEX];
   rhoCvve_i = V_i[RHOCVVE_INDEX];   rhoCvve_j = V_j[RHOCVVE_INDEX];
+  for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
+    rhoEve_i += (V_i[RHOS_INDEX+iSpecies]*eve_i[iSpecies]);
+    rhoEve_j += (V_j[RHOS_INDEX+iSpecies]*eve_j[iSpecies]);
+  }
 
   vector<su2double> Ms = fluidmodel->GetSpeciesMolarMass();
   

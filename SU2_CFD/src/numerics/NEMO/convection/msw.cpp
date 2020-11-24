@@ -139,7 +139,7 @@ CNumerics::ResidualType<> CUpwMSW_NEMO::ComputeResidual(const CConfig *config) {
 //    }
 //  }
 
-  /*--- Rename/load primitive variables ---*/
+  /*--- Load variables from nodes i & j ---*/
   for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
     rhos_i[iSpecies] = V_i[RHOS_INDEX+iSpecies];
     rhos_j[iSpecies] = V_j[RHOS_INDEX+iSpecies];
@@ -151,7 +151,7 @@ CNumerics::ResidualType<> CUpwMSW_NEMO::ComputeResidual(const CConfig *config) {
   P_i = V_i[P_INDEX];
   P_j = V_j[P_INDEX];
 
-  /*--- Calculate velocity  quantities ---*/
+  /*--- Calculate velocity quantities ---*/
   sqvel_i   = 0.0;  sqvel_j   = 0.0;
   ProjVel_i = 0.0;  ProjVel_j = 0.0;
   for (iDim = 0; iDim < nDim; iDim++) {
@@ -213,7 +213,6 @@ CNumerics::ResidualType<> CUpwMSW_NEMO::ComputeResidual(const CConfig *config) {
       for (kVar = 0; kVar < nVar; kVar++)
         Proj_ModJac_Tensor_i += P_Tensor[iVar][kVar]*Lambda_i[kVar]*invP_Tensor[kVar][jVar];
       Fc_i[iVar] += Proj_ModJac_Tensor_i*U_i[jVar]*Area;
-
      // if (implicit)
      //   val_Jacobian_i[iVar][jVar] += Proj_ModJac_Tensor_i*Area;
     }

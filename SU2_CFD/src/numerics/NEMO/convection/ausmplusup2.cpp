@@ -141,8 +141,11 @@ CNumerics::ResidualType<> CUpwAUSMPLUSUP2_NEMO::ComputeResidual(const CConfig *c
   rho_i     = V_i[RHO_INDEX];     rho_j     = V_j[RHO_INDEX];
   rhoCvtr_i = V_i[RHOCVTR_INDEX]; rhoCvtr_j = V_j[RHOCVTR_INDEX];
   rhoCvve_i = V_i[RHOCVVE_INDEX]; rhoCvve_j = V_j[RHOCVVE_INDEX];
-  e_ve_i    = U_i[nSpecies+nDim+1] / rho_i;
-  e_ve_j    = U_j[nSpecies+nDim+1] / rho_j;
+  e_ve_i    = 0;  e_ve_j    = 0;
+  for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
+    e_ve_i += (V_i[RHOS_INDEX+iSpecies]*eve_i[iSpecies])/rho_i;
+    e_ve_j += (V_j[RHOS_INDEX+iSpecies]*eve_j[iSpecies])/rho_j;
+  }
 
   /*--- Projected velocities ---*/
   ProjVel_i = 0.0; ProjVel_j = 0.0;
@@ -152,17 +155,8 @@ CNumerics::ResidualType<> CUpwAUSMPLUSUP2_NEMO::ComputeResidual(const CConfig *c
   }
 
   /*--- Compute Gamma ---*/
-  //TODO move to fluidmodel
-  vector<su2double> Ms = fluidmodel->GetSpeciesMolarMass();
-  su2double Ru = 1000.0* UNIVERSAL_GAS_CONSTANT;
-  su2double rhoRi = 0.0;
-  su2double rhoRj = 0.0;
-  for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
-    rhoRi += rhos_i[iSpecies]*Ru/Ms[iSpecies];
-    rhoRj += rhos_j[iSpecies]*Ru/Ms[iSpecies];
-  }
-  Gamma_i =rhoRi/(rhoCvtr_i+rhoCvve_i)+1;
-  Gamma_j =rhoRj/(rhoCvtr_j+rhoCvve_j)+1;
+  Gamma_i = fluidmodel->GetGamma(V_i);
+  Gamma_j = fluidmodel->GetGamma(V_j);
 
   /*--- Compute C*  ---*/
   CstarL = sqrt(2.0*(Gamma_i-1.0)/(Gamma_i+1.0)*h_i);

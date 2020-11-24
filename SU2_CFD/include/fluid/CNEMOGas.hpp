@@ -1,4 +1,4 @@
-/*!
+﻿/*!
  * \file CNEMOGas.hpp
  * \brief Defines the nonequilibrium gas model.
  * \author C. Garbacz, W. Maier, S. R. Copeland
@@ -172,6 +172,16 @@ public:
   su2double GetPressure();
 
   /*!
+   * \brief Get gas constant.
+   */
+  su2double GetGasConstant();
+
+  /*!
+   * \brief Get ratio of specific heats (Gamma).
+   */
+  su2double GetGamma(su2double *V);
+
+  /*!
    * \brief Get derivative of pressure w.r.t. conservative variables.
    */
   void GetdPdU(su2double *V, vector<su2double>& val_eves, su2double *val_dPdU);
@@ -200,11 +210,6 @@ public:
    * \brief Set species vibrational energies.
    */
   inline void SetEves(vector<su2double>& val_eves) { eves = val_eves; }
-
-  /*!
-   * \brief Get gas constant.
-   */
-  su2double GetGasConstant();
 
   /*!
    * \brief Get rhoCvtr.

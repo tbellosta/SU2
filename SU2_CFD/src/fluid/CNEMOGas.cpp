@@ -1,4 +1,4 @@
-/*!
+﻿/*!
  * \file CNEMOGas.cpp
  * \brief Source of the nonequilibrium gas model.
  * \author C. Garbacz, W. Maier, S. R. Copeland
@@ -115,6 +115,7 @@ su2double CNEMOGas::GetPressure(){
   Pressure = P;
 
   return P;
+
 }
 
 su2double CNEMOGas::GetGasConstant(){
@@ -127,6 +128,28 @@ su2double CNEMOGas::GetGasConstant(){
   GasConstant = Ru / Mass;
  
   return GasConstant;
+}
+
+su2double CNEMOGas::GetGamma(su2double *V){
+
+  /*--- Necessary indexes to assess primitive variables ---*/
+  unsigned long RHOS_INDEX    = 0;
+  unsigned long RHOCVTR_INDEX = nSpecies+nDim+6;
+  unsigned long RHOCVVE_INDEX = nSpecies+nDim+7;
+
+  /*--- Extract Values ---*/
+  rhoCvtr = V[RHOCVTR_INDEX];
+  rhoCvve = V[RHOCVVE_INDEX];
+
+  /*--- Gamma Computation ---*/
+  su2double rhoR = 0.0;
+  for(iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+    rhoR += V[RHOS_INDEX+iSpecies]*Ru/MolarMass[iSpecies];
+
+  gamma = rhoR/(rhoCvtr+rhoCvve)+1;
+
+  return gamma;
+
 }
 
 su2double CNEMOGas::GetrhoCvve() {
@@ -162,8 +185,8 @@ void CNEMOGas::GetdPdU(su2double *V, vector<su2double>& val_eves, su2double *val
   unsigned long RHOCVVE_INDEX = nSpecies+nDim+7;
 
   /*--- Extract variables ---*/
-
-  for(iSpecies = 0; iSpecies < nSpecies; iSpecies++) rhos[iSpecies] = V[RHOS_INDEX+iSpecies];
+  for(iSpecies = 0; iSpecies < nSpecies; iSpecies++)
+    rhos[iSpecies] = V[RHOS_INDEX+iSpecies];
 
   Cvtrs              = GetSpeciesCvTraRot();
   Enthalpy_Formation = GetSpeciesFormationEnthalpy();

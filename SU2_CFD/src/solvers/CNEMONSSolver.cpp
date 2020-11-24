@@ -1016,7 +1016,7 @@ void CNEMONSSolver::BC_Smoluchowski_Maxwell(CGeometry *geometry,
 
   su2double TMAC, TAC;
   su2double Viscosity, Lambda;
-  su2double Density, GasConstant, rhoR;
+  su2double Density, GasConstant;
 
   su2double **Grad_PrimVar;
   su2double Vector_Tangent_dT[3], Vector_Tangent_dTve[3], Vector_Tangent_HF[3];
@@ -1157,7 +1157,7 @@ void CNEMONSSolver::BC_Smoluchowski_Maxwell(CGeometry *geometry,
       /*--- Calculate Heatflux tangent to surface ---*/
       for (iDim = 0; iDim < nDim; iDim++) 
         Vector_Tangent_HF[iDim] = -ktr*Vector_Tangent_dT[iDim]-kve*Vector_Tangent_dTve[iDim];
-      
+
       /*--- Initialize viscous residual to zero ---*/
       for (iVar = 0; iVar < nVar; iVar ++)
         Res_Visc[iVar] = 0.0;

@@ -174,7 +174,6 @@ public:
 
 private:
 
-
   /*!
    * \brief Function, which checks whether or not the given coordinate is
             inside the given element.

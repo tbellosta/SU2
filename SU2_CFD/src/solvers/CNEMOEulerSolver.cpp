@@ -60,6 +60,7 @@ CNEMOEulerSolver::CNEMOEulerSolver(CGeometry *geometry, CConfig *config,
   string filename_ = "flow";
 
   bool nonPhys;
+  su2double Soundspeed_Inf, sqvel;
   vector<su2double> Energies_Inf;
 
   /*--- A grid is defined as dynamic if there's rigid grid movement or grid deformation AND the problem is time domain ---*/
@@ -1080,7 +1081,7 @@ void CNEMOEulerSolver::Source_Residual(CGeometry *geometry, CSolver **solver_con
             Jacobian.SubtractBlock(iPoint, iPoint, Jacobian_i);
         } else
           eChm_local++;
-      }      
+      }
     }
 
     /*--- Compute vibrational energy relaxation ---*/
@@ -1942,7 +1943,7 @@ void CNEMOEulerSolver::BC_Inlet(CGeometry *geometry, CSolver **solution_containe
   unsigned long iVertex, iPoint;
   su2double  T_Total, P_Total, Velocity[3], Velocity2, H_Total, Temperature, Riemann,
       Pressure, Density, Energy, Mach2, SoundSpeed2, SoundSpeed_Total2, Vel_Mag,
-      alpha, aa, bb, cc, dd, Area, UnitNormal[3];
+      alpha, aa, bb, cc, dd, Area, UnitNormal[3] = {0.0};
   const su2double *Flow_Dir;
 
   bool dynamic_grid         = config->GetGrid_Movement();
@@ -2292,14 +2293,7 @@ void CNEMOEulerSolver::BC_Outlet(CGeometry *geometry, CSolver **solution_contain
       }
 
       /*--- Compute Gamma ---*/
-      //TODO: Move to fluidmodel
-      vector<su2double> Ms = FluidModel->GetSpeciesMolarMass();
-      su2double Ru = 1000.0* UNIVERSAL_GAS_CONSTANT;
-      su2double rhoR = 0.0;
-      for (iSpecies = 0; iSpecies < nSpecies; iSpecies++)
-        rhoR += V_domain[iSpecies]*Ru/Ms[iSpecies];
-      Gamma =rhoR/(V_domain[RHOCVTR_INDEX] +
-                   V_domain[RHOCVVE_INDEX])+1;
+      Gamma = FluidModel->GetGamma(V_domain);
       Gamma_Minus_One = Gamma - 1.0;
 
       /*--- Recompute boundary state depending Mach number ---*/

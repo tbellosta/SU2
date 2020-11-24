@@ -252,7 +252,7 @@ CUserDefinedTCLib::CUserDefinedTCLib(const CConfig* config, unsigned short val_n
     Omega11(0,1,0) = -8.3493693E-03;  Omega11(0,1,1) = 1.7808911E-01;   Omega11(0,1,2) = -1.4466155E+00;  Omega11(0,1,3) = 1.9324210E+03;
     Omega11(1,0,0) = -8.3493693E-03;  Omega11(1,0,1) = 1.7808911E-01;   Omega11(1,0,2) = -1.4466155E+00;  Omega11(1,0,3) = 1.9324210E+03;
     Omega11(1,1,0) = -7.7439615E-03;  Omega11(1,1,1) = 1.7129007E-01;   Omega11(1,1,2) = -1.4809088E+00;  Omega11(1,1,3) = 2.1284951E+03;
- 
+
   } else if (Kind_GasModel == "AIR-5"){
     /*--- Check for errors in the initialization ---*/
     if (nSpecies != 5) {
@@ -1081,6 +1081,7 @@ void CUserDefinedTCLib::DiffusionCoeffWBE(){
         denom += MolarFracWBE[jSpecies]/Dij(iSpecies,jSpecies);
       }
     }
+
     if (nSpecies==1) DiffusionCoeff[0] = 0;
     else DiffusionCoeff[iSpecies] = (1-MolarFracWBE[iSpecies])/denom;
   }    
@@ -1579,6 +1580,3 @@ void CUserDefinedTCLib::GetChemistryEquilConstants(unsigned short iReaction){
     }
   }
 }
-
-
-

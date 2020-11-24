@@ -99,7 +99,6 @@ CNumerics::ResidualType<> CUpwAUSM_NEMO::ComputeResidual(const CConfig *config) 
   rho_j     = V_j[RHO_INDEX];
   e_ve_i    = 0;
   e_ve_j    = 0;
-
   for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
     e_ve_i += (V_i[RHOS_INDEX+iSpecies]*eve_i[iSpecies])/rho_i;
     e_ve_j += (V_j[RHOS_INDEX+iSpecies]*eve_j[iSpecies])/rho_j;
@@ -154,7 +153,7 @@ CNumerics::ResidualType<> CUpwAUSM_NEMO::ComputeResidual(const CConfig *config) 
 
   for (iDim = 0; iDim < nDim; iDim++)
     Flux[nSpecies+iDim] += pF*UnitNormal[iDim]*Area;
-  
+
 //  if (implicit)
 
 //    /*--- Initialize the Jacobians ---*/

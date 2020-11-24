@@ -1123,8 +1123,13 @@ void CConfig::SetConfig_Options() {
   addBoolOption("MULTIZONE", Multizone_Problem, NO);
   /*!\brief PHYSICAL_PROBLEM \n DESCRIPTION: Physical governing equations \n Options: see \link Solver_Map \endlink \n DEFAULT: NO_SOLVER \ingroup Config*/
   addEnumOption("MULTIZONE_SOLVER", Kind_MZSolver, Multizone_Map, MZ_BLOCK_GAUSS_SEIDEL);
+#ifdef CODI_REVERSE_TYPE
+  const bool discAdjDefault = true;
+#else
+  const bool discAdjDefault = false;
+#endif
   /*!\brief MATH_PROBLEM  \n DESCRIPTION: Mathematical problem \n  Options: DIRECT, ADJOINT \ingroup Config*/
-  addMathProblemOption("MATH_PROBLEM", ContinuousAdjoint, false, DiscreteAdjoint, false, Restart_Flow, false);
+  addMathProblemOption("MATH_PROBLEM", ContinuousAdjoint, false, DiscreteAdjoint, discAdjDefault, Restart_Flow, discAdjDefault);
   /*!\brief KIND_TURB_MODEL \n DESCRIPTION: Specify turbulence model \n Options: see \link Turb_Model_Map \endlink \n DEFAULT: NO_TURB_MODEL \ingroup Config*/
   addEnumOption("KIND_TURB_MODEL", Kind_Turb_Model, Turb_Model_Map, NO_TURB_MODEL);
   /*!\brief KIND_TRANS_MODEL \n DESCRIPTION: Specify transition model OPTIONS: see \link Trans_Model_Map \endlink \n DEFAULT: NO_TRANS_MODEL \ingroup Config*/
@@ -2944,9 +2949,12 @@ void CConfig::SetConfig_Parsing(istream& config_buffer){
           newString.append("\n");
           if (!option_name.compare("RELAXATION_FACTOR_ADJFLOW"))
             newString.append("Option RELAXATION_FACTOR_ADJFLOW is now RELAXATION_FACTOR_ADJOINT, "
-                             "and it also applies to discrete adjoint problems\n.");
+                             "and it also applies to discrete adjoint problems.\n\n");
+          if (!option_name.compare("WRT_MESH_QUALITY"))
+            newString.append("WRT_MESH_QUALITY is deprecated. Use VOLUME_OUTPUT= (MESH_QUALITY, ...) instead.\n\n");
           errorString.append(newString);
           err_count++;
+          line_count++;
         continue;
       }
 
@@ -2959,6 +2967,7 @@ void CConfig::SetConfig_Parsing(istream& config_buffer){
         newString.append("\n");
         errorString.append(newString);
         err_count++;
+        line_count++;
         continue;
       }
 
@@ -3264,6 +3273,13 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
     }
   }
 
+  /*--- Check if MESH_QUALITY is requested in VOLUME_OUTPUT and set the config boolean accordingly. ---*/
+  Wrt_MeshQuality = false;
+  for (unsigned short iField = 0; iField < nVolumeOutput; iField++) {
+    if(VolumeOutput[iField].find("MESH_QUALITY") != string::npos) {
+      Wrt_MeshQuality = true;
+    }
+  }
 
   if (Kind_Solver == NAVIER_STOKES && Kind_Turb_Model != NONE){
     SU2_MPI::Error("KIND_TURB_MODEL must be NONE if SOLVER= NAVIER_STOKES", CURRENT_FUNCTION);
@@ -3592,8 +3608,8 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
     SU2_MPI::Error("Only STANDARD_AIR fluid model can be used with US Measurement System", CURRENT_FUNCTION);
   }
 
-  if (nemo && Kind_FluidModel != USER_DEFINED_NONEQ && Kind_FluidModel != MUTATIONPP) {
-    SU2_MPI::Error("Only USER_DEFINED_NONEQ or MUTATIONPP nonequilibrium fluid model can be used with the NEMO solver.", CURRENT_FUNCTION);
+  if (nemo && Kind_FluidModel != USER_DEFINED_NONEQ ) {
+    SU2_MPI::Error("Only USER_DEFINED_NONEQ fluid model can be used with the NEMO solver. Mutation++ library will soon be available.", CURRENT_FUNCTION);
   }
 
   if (!ideal_gas && !nemo) {
@@ -4890,6 +4906,10 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
                      CURRENT_FUNCTION);
     }
 #endif
+
+    /*--- Use the same linear solver on the primal as the one used in the adjoint. ---*/
+    Kind_Linear_Solver = Kind_DiscAdj_Linear_Solver;
+    Kind_Linear_Solver_Prec = Kind_DiscAdj_Linear_Prec;
 
     /*--- Disable writing of limiters if enabled ---*/
     Wrt_Limiters = false;
