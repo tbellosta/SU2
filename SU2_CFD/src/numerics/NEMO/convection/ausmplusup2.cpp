@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file ausmplusup2.cpp
  * \brief Implementations of the AUSM-family of schemes - AUSM+UP2.
  * \author W. Maier, A. Sachedeva, C. Garbacz
@@ -135,12 +135,14 @@ CNumerics::ResidualType<> CUpwAUSMPLUSUP2_NEMO::ComputeResidual(const CConfig *c
     sq_velj   += u_j[iDim]*u_j[iDim];
   }
 
-  P_i       = V_i[P_INDEX];       P_j       = V_j[P_INDEX];
-  h_i       = V_i[H_INDEX];       h_j       = V_j[H_INDEX];
-  a_i       = V_i[A_INDEX];       a_j       = V_j[A_INDEX];
-  rho_i     = V_i[RHO_INDEX];     rho_j     = V_j[RHO_INDEX];
-  rhoCvtr_i = V_i[RHOCVTR_INDEX]; rhoCvtr_j = V_j[RHOCVTR_INDEX];
+  P_i        = V_i[P_INDEX];       P_j           = V_j[P_INDEX];
+  h_i        = V_i[H_INDEX];       h_j            = V_j[H_INDEX];
+  a_i        = V_i[A_INDEX];       a_j            = V_j[A_INDEX];
+  rho_i     = V_i[RHO_INDEX]; rho_j         = V_j[RHO_INDEX];
+  
+rhoCvtr_i     = V_i[RHOCVTR_INDEX]; rhoCvtr_j  = V_j[RHOCVTR_INDEX];
   rhoCvve_i = V_i[RHOCVVE_INDEX]; rhoCvve_j = V_j[RHOCVVE_INDEX];
+
   e_ve_i    = 0;  e_ve_j    = 0;
   for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
     e_ve_i += (V_i[RHOS_INDEX+iSpecies]*eve_i[iSpecies])/rho_i;

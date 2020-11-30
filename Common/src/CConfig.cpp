@@ -1201,9 +1201,9 @@ void CConfig::SetConfig_Options() {
   addBoolOption("FROZEN_MIXTURE", frozen, false);
   /* DESCRIPTION: Specify if there is ionization */
   addBoolOption("IONIZATION", ionization, false);
-  /* DESCRIPTION: Specify if there VT transfer residual limiting */
+  /* DESCRIPTION: Specify if there is VT transfer residual limiting */
   addBoolOption("VT_RESIDUAL_LIMITING", vt_transfer_res_limit, false);
-  /* DESCRIPTION: Specify if there is the gas is monoatomic */
+  /* DESCRIPTION: Specify if the gas is monoatomic */
   addBoolOption("MONOATOMIC", monoatomic, false);
   /* DESCRIPTION: List of catalytic walls */
   addStringListOption("CATALYTIC_WALL", nWall_Catalytic, Wall_Catalytic);
@@ -3612,6 +3612,10 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
     SU2_MPI::Error("Only USER_DEFINED_NONEQ fluid model can be used with the NEMO solver. Mutation++ library will soon be available.", CURRENT_FUNCTION);
   }
 
+  if (nemo && Kind_TransCoeffModel != WILKE ) {
+    SU2_MPI::Error("Only WILKE transport model is stable for the NEMO solver.", CURRENT_FUNCTION);
+  }
+
   if (!ideal_gas && !nemo) {
     if (Kind_Upwind_Flow != ROE && Kind_Upwind_Flow != HLLC && Kind_Centered_Flow != JST) {
       SU2_MPI::Error("Only ROE Upwind, HLLC Upwind scheme, and JST scheme can be used for Non-Ideal Compressible Fluids", CURRENT_FUNCTION);
@@ -5647,14 +5651,14 @@ void CConfig::SetOutput(unsigned short val_software, unsigned short val_izone) {
         break;
       case NEMO_EULER:
         if (Kind_Regime == COMPRESSIBLE) cout << "Compressible two-temperature thermochemical non-equilibrium Euler equations." << endl;
-        if(Kind_FluidModel == USER_DEFINED_NONEQ){ 
+        if(Kind_FluidModel == USER_DEFINED_NONEQ){
           if ((GasModel != "N2") && (GasModel != "AIR-5") && (GasModel != "ARGON"))
           SU2_MPI::Error("The GAS_MODEL given as input is not valid. Choose one of the options: N2, AIR-5, ARGON.", CURRENT_FUNCTION);
         }
         break;
       case NEMO_NAVIER_STOKES:
         if (Kind_Regime == COMPRESSIBLE) cout << "Compressible two-temperature thermochemical non-equilibrium Navier-Stokes equations." << endl;
-        if(Kind_FluidModel == USER_DEFINED_NONEQ){  
+        if(Kind_FluidModel == USER_DEFINED_NONEQ){
           if ((GasModel != "N2") && (GasModel != "AIR-5") && (GasModel != "ARGON"))
           SU2_MPI::Error("The GAS_MODEL given as input is not valid. Choose one of the options: N2, AIR-5, ARGON.", CURRENT_FUNCTION);
         }

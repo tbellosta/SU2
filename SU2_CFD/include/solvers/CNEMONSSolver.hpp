@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file CNEMONSSolver.hpp
  * \brief Headers of the CNEMONSSolver class
  * \author S. R. Copeland, F. Palacios, W. Maier.

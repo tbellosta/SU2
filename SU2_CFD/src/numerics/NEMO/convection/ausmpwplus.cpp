@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file ausmpwplus.cpp
  * \brief Implementations of the AUSM-family of schemes - AUSMPWPLUS.
  * \author F. Palacios, W.Maier, C. Garbacz
@@ -117,7 +117,8 @@ CNumerics::ResidualType<> CUpwAUSMPWplus_NEMO::ComputeResidual(const CConfig *co
   alpha = 3.0/16.0;
 
   /*---- Initialize the residual vector ---*/
-  for (iVar = 0; iVar < nVar; iVar++) {Flux[iVar] = 0.0;}
+  for (iVar = 0; iVar < nVar; iVar++)
+    Flux[iVar] = 0.0;
 
   /*--- Calculate geometric quantities ---*/
   Area = 0;
@@ -142,17 +143,18 @@ CNumerics::ResidualType<> CUpwAUSMPWplus_NEMO::ComputeResidual(const CConfig *co
     u_i[iDim] = V_i[VEL_INDEX+iDim];
     u_j[iDim] = V_j[VEL_INDEX+iDim];
   }
-  P_i       = V_i[P_INDEX];         P_j       = V_j[P_INDEX];
-  h_i       = V_i[H_INDEX];         h_j       = V_j[H_INDEX];
-  rho_i     = V_i[RHO_INDEX];       rho_j     = V_j[RHO_INDEX];
-  rhoCvtr_i = V_i[RHOCVTR_INDEX];   rhoCvtr_j = V_j[RHOCVTR_INDEX];
-  rhoCvve_i = V_i[RHOCVVE_INDEX];   rhoCvve_j = V_j[RHOCVVE_INDEX];
+  P_i     = V_i[P_INDEX];      P_j   = V_j[P_INDEX];
+  h_i    = V_i[H_INDEX];       h_j    = V_j[H_INDEX];
+  rho_i = V_i[RHO_INDEX]; rho_j = V_j[RHO_INDEX];
+  
+  rhoCvtr_i   = V_i[RHOCVTR_INDEX]; rhoCvtr_j  = V_j[RHOCVTR_INDEX];
+  rhoCvve_i = V_i[RHOCVVE_INDEX]; rhoCvve_j = V_j[RHOCVVE_INDEX];
   for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {
     rhoEve_i += (V_i[RHOS_INDEX+iSpecies]*eve_i[iSpecies]);
     rhoEve_j += (V_j[RHOS_INDEX+iSpecies]*eve_j[iSpecies]);
   }
 
-  vector<su2double> Ms = fluidmodel->GetSpeciesMolarMass();
+  auto& Ms = fluidmodel->GetSpeciesMolarMass();
   
   rhoRi = 0.0;  rhoRj = 0.0;
   for (iSpecies = 0; iSpecies < nSpecies; iSpecies++) {

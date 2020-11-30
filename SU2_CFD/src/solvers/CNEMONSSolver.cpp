@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file CNEMONSSolver.cpp
  * \brief Headers of the CNEMONSSolver class
  * \author S. R. Copeland, F. Palacios, W. Maier.
@@ -85,10 +85,10 @@ void CNEMONSSolver::Preprocessing(CGeometry *geometry, CSolver **solver_containe
   if ((muscl && !center) && (iMesh == MESH_0)) {
     switch (config->GetKind_Gradient_Method_Recon()) {
       case GREEN_GAUSS:
-        SetPrimitive_Gradient_GG(geometry, config, true); break;
+        SetSolution_Gradient_GG(geometry, config, true); break;
       case LEAST_SQUARES:
       case WEIGHTED_LEAST_SQUARES:
-        SetPrimitive_Gradient_LS(geometry, config, true); break;
+        SetSolution_Gradient_LS(geometry, config, true); break;
       default: break;
     }
   } 
@@ -106,7 +106,7 @@ void CNEMONSSolver::Preprocessing(CGeometry *geometry, CSolver **solver_containe
    *    viscous terms (check this logic with JST and 2nd order turbulence model) ---*/
 
   if ((iMesh == MESH_0) && (limiter_flow || limiter_turb || limiter_adjflow) && !Output && !van_albada) {
-    SetPrimitive_Limiter(geometry, config);
+    SetSolution_Limiter(geometry, config);
   }
 
   /*--- Evaluate the vorticity and strain rate magnitude ---*/
@@ -218,10 +218,6 @@ unsigned long CNEMONSSolver::SetPrimitive_Variables(CSolver **solver_container,C
     /* Check for non-realizable states for reporting. */
 
     if (nonphysical) nonPhysicalPoints++;
-
-    /*--- Initialize the convective, source and viscous residual vector ---*/
-
-    if (!Output) LinSysRes.SetBlock_Zero(iPoint);
 
   }
 
@@ -384,8 +380,8 @@ void CNEMONSSolver::BC_HeatFluxNonCatalytic_Wall(CGeometry *geometry,
       // TODO: Need to determine proper way to incorporate eddy viscosity
       // This is only scaling Kve by same factor as ktr
       // Could add to fluid model?
-      su2double         Mass = 0.0;
-      vector<su2double> Ms   = FluidModel->GetSpeciesMolarMass();
+      su2double Mass = 0.0;
+      auto&     Ms   = FluidModel->GetSpeciesMolarMass();
       su2double tmp1, scl, Cptr;
       su2double Ru=1000.0*UNIVERSAL_GAS_CONSTANT;
       su2double eddy_viscosity = nodes->GetEddyViscosity(iPoint);
@@ -696,7 +692,7 @@ void CNEMONSSolver::BC_IsothermalNonCatalytic_Wall(CGeometry *geometry,
   unsigned short RHOCVTR_INDEX = nodes->GetRhoCvtrIndex();
 
   /*--- Define 'proportional control' constant ---*/
-  C = 1;
+  C = 5;
 
   /*--- Identify the boundary ---*/
   string Marker_Tag = config->GetMarker_All_TagBound(val_marker);
@@ -765,8 +761,8 @@ void CNEMONSSolver::BC_IsothermalNonCatalytic_Wall(CGeometry *geometry,
       // TODO: Need to determine proper way to incorporate eddy viscosity
       // This is only scaling Kve by same factor as ktr
       V = nodes->GetPrimitive(iPoint);
-      su2double         Mass = 0.0;
-      vector<su2double> Ms   = FluidModel->GetSpeciesMolarMass();
+      su2double Mass = 0.0;
+      auto&     Ms   = FluidModel->GetSpeciesMolarMass();
       su2double tmp1, scl, Cptr;
       su2double Ru=1000.0*UNIVERSAL_GAS_CONSTANT;
       su2double eddy_viscosity=nodes->GetEddyViscosity(iPoint);
@@ -827,7 +823,7 @@ void CNEMONSSolver::BC_IsothermalCatalytic_Wall(CGeometry *geometry,
   su2double rho, *eves, *dTdU, *dTvedU, *Cvve, *Normal, Area, Ru, RuSI,
   dij, *Di, *Vi, *Vj, *Yj, *dYdn, SdYdn, **GradY, **dVdU;
   const su2double *Yst;
-  vector<su2double> hs, Cvtrs, Ms;
+  vector<su2double> hs, Cvtrs;
 
   /*--- Assign booleans ---*/
   implicit = (config->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
@@ -841,7 +837,7 @@ void CNEMONSSolver::BC_IsothermalCatalytic_Wall(CGeometry *geometry,
   /*--- Get universal information ---*/
   RuSI = UNIVERSAL_GAS_CONSTANT;
   Ru   = 1000.0*RuSI;
-  Ms   = FluidModel->GetSpeciesMolarMass();
+  auto& Ms   = FluidModel->GetSpeciesMolarMass();
 
   /*--- Get the locations of the primitive variables ---*/
   RHOS_INDEX    = nodes->GetRhosIndex();
@@ -1028,8 +1024,6 @@ void CNEMONSSolver::BC_Smoluchowski_Maxwell(CGeometry *geometry,
   su2double TauNormal;
   su2double div_vel=0, Delta;
 
-  vector<su2double> Ms;
-
   bool ionization = config->GetIonization();
 
   if (ionization) {
@@ -1056,8 +1050,6 @@ void CNEMONSSolver::BC_Smoluchowski_Maxwell(CGeometry *geometry,
   T_INDEX       = nodes->GetTIndex();
   VEL_INDEX     = nodes->GetVelIndex();
   TVE_INDEX     = nodes->GetTveIndex();
-  RHOCVTR_INDEX = nodes->GetRhoCvtrIndex();
-  RHOCVVE_INDEX = nodes->GetRhoCvveIndex();
 
   /*--- Loop over boundary points to calculate energy flux ---*/
   for(iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
@@ -1114,7 +1106,7 @@ void CNEMONSSolver::BC_Smoluchowski_Maxwell(CGeometry *geometry,
       Viscosity = nodes->GetLaminarViscosity(iPoint);
       Density   = nodes->GetDensity(iPoint);
 
-      Ms = FluidModel->GetSpeciesMolarMass();
+      auto& Ms = FluidModel->GetSpeciesMolarMass();
 
       /*--- Retrieve Primitive Gradients ---*/
       Grad_PrimVar = nodes->GetGradient_Primitive(iPoint);

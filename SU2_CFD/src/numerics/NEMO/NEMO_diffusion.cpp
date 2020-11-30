@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file NEMO_diffusion.cpp
  * \brief Implementation of numerics classes for discretization
  *        of viscous fluxes in fluid flow NEMO problems.

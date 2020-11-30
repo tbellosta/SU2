@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file NEMO_diffusion.hpp
  * \brief Declarations of numerics classes for viscous flux computation.
  * \author S.R. Copeland, W. Maier, C. Garbacz.

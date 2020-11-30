@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file CNEMOEulerSolver.hpp
  * \brief Headers of the CNEMOEulerSolver class
  * \author S. R. Copeland, F. Palacios, W. Maier.

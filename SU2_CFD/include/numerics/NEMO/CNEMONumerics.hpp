@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file CNEMONumerics.hpp
  * \brief Base class template NEMO numerics.
  * \author C. Garbacz, W. Maier, S. R. Copeland

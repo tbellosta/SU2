@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * \file CNEMOGas.hpp
  * \brief Defines the nonequilibrium gas model.
  * \author C. Garbacz, W. Maier, S. R. Copeland
@@ -101,6 +101,7 @@ public:
   /*!
    * \brief Set mixture thermodynamic state.
    * \param[in] P    - Pressure.
+   * \param[in] Ms   - Mass fraction of the gas.
    * \param[in] T    - Translational/Rotational temperature.
    * \param[in] Tve  - Vibrational/Electronic temperature.
    */
@@ -109,7 +110,7 @@ public:
   /*!
    * \brief Get species T-R specific heats at constant volume.
    */
-  virtual vector<su2double>& GetSpeciesCvTraRot() = 0;
+  virtual const vector<su2double>& GetSpeciesCvTraRot() = 0;
   
   /*!
    * \brief Get species V-E specific heats at constant volume.
@@ -162,39 +163,39 @@ public:
   virtual vector<su2double>& GetTemperatures(vector<su2double>& val_rhos, su2double rhoEmix, su2double rhoEve, su2double rhoEvel) = 0;
   
   /*!
-   * \brief Get speed of sound.
+   * \brief Compute speed of sound.
    */
-  su2double GetSoundSpeed();
+  su2double ComputeSoundSpeed();
 
   /*!
-   * \brief Get pressure.
+   * \brief Compute pressure.
    */
-  su2double GetPressure();
+  su2double ComputePressure();
 
   /*!
-   * \brief Get gas constant.
+   * \brief Compute gas constant.
    */
-  su2double GetGasConstant();
+  su2double ComputeGasConstant();
 
   /*!
-   * \brief Get ratio of specific heats (Gamma).
+   * \brief Compute ratio of specific heats (Gamma).
    */
-  su2double GetGamma(su2double *V);
+  su2double ComputeGamma(su2double *V);
 
   /*!
    * \brief Get derivative of pressure w.r.t. conservative variables.
    */
-  void GetdPdU(su2double *V, vector<su2double>& val_eves, su2double *val_dPdU);
+  void ComputedPdU(su2double *V, vector<su2double>& val_eves, su2double *val_dPdU);
   
   /*!
    * \brief Get derivative of temperature w.r.t. conservative variables.
    */
-  void GetdTdU(su2double *V, su2double *val_dTdU);
+  void ComputedTdU(su2double *V, su2double *val_dTdU);
   
   /*!
    * \brief Get derivative of vibrational temperature w.r.t. conservative variables.
    */
-  void GetdTvedU(su2double *V, vector<su2double>& val_eves, su2double *val_dTvedU);
+  void ComputedTvedU(su2double *V, vector<su2double>& val_eves, su2double *val_dTvedU);
 
   /*!
    * \brief Set the translational temperature.
@@ -229,15 +230,15 @@ public:
   /*!
    * \brief Get species molar mass.
    */
-  virtual vector<su2double>& GetSpeciesMolarMass() = 0;
+  virtual const vector<su2double>& GetSpeciesMolarMass() = 0;
 
   /*!
    * \brief Get reference temperature.
    */
-  virtual vector<su2double>& GetRefTemperature() = 0;
+  virtual const vector<su2double>& GetRefTemperature() = 0;
 
   /*!
    * \brief Get species formation enthalpy.
    */
-  virtual vector<su2double>& GetSpeciesFormationEnthalpy() = 0;  
+  virtual const vector<su2double>& GetSpeciesFormationEnthalpy() = 0;  
 };
