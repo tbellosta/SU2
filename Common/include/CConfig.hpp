@@ -502,6 +502,8 @@ private:
   Kind_TimeIntScheme_AdjTurb,   /*!< \brief Time integration for the adjoint turbulence model. */
   Kind_TimeIntScheme_Heat,      /*!< \brief Time integration for the wave equations. */
   Kind_TimeStep_Heat,           /*!< \brief Time stepping method for the (fvm) heat equation. */
+  Kind_TimeStep_PT,             /*!< \brief Time stepping method for the particle tracking equations. */
+  Kind_TimeIntScheme_PT,        /*!< \brief Time integration for the particle tracking equations equations. */
   Kind_TimeIntScheme_FEA,       /*!< \brief Time integration for the FEA equations. */
   Kind_SpaceIteScheme_FEA,      /*!< \brief Iterative scheme for nonlinear structural analysis. */
   Kind_TimeIntScheme_Radiation, /*!< \brief Time integration for the Radiation equations. */
@@ -509,6 +511,7 @@ private:
   Kind_ConvNumScheme_Flow,      /*!< \brief Centered or upwind scheme for the flow equations. */
   Kind_ConvNumScheme_FEM_Flow,  /*!< \brief Finite element scheme for the flow equations. */
   Kind_ConvNumScheme_Heat,      /*!< \brief Centered or upwind scheme for the flow equations. */
+  Kind_ConvNumScheme_PT,        /*!< \brief Centered or upwind scheme for the particle tracking equations. */
   Kind_ConvNumScheme_AdjFlow,   /*!< \brief Centered or upwind scheme for the adjoint flow equations. */
   Kind_ConvNumScheme_Turb,      /*!< \brief Centered or upwind scheme for the turbulence model. */
   Kind_ConvNumScheme_AdjTurb,   /*!< \brief Centered or upwind scheme for the adjoint turbulence model. */
@@ -539,6 +542,7 @@ private:
   MUSCL_Flow,              /*!< \brief MUSCL scheme for the flow equations.*/
   MUSCL_Turb,              /*!< \brief MUSCL scheme for the turbulence equations.*/
   MUSCL_Heat,              /*!< \brief MUSCL scheme for the (fvm) heat equation.*/
+  MUSCL_PT,              /*!< \brief MUSCL scheme for the (fvm) PT equation.*/
   MUSCL_AdjFlow,           /*!< \brief MUSCL scheme for the adj flow equations.*/
   MUSCL_AdjTurb,           /*!< \brief MUSCL scheme for the adj turbulence equations.*/
   Use_Accurate_Jacobians;  /*!< \brief Use numerically computed Jacobians for AUSM+up(2) and SLAU(2). */
@@ -4382,6 +4386,15 @@ public:
   bool GetMUSCL_Heat(void) const { return MUSCL_Heat; }
 
   /*!
+  * \brief Get if the upwind scheme used MUSCL or not.
+  * \note This is the information that the code will use, the method will
+  *       change in runtime depending of the specific equation (direct, adjoint,
+  *       linearized) that is being solved.
+  * \return MUSCL scheme.
+  */
+  bool GetMUSCL_PT(void) const { return MUSCL_PT; }
+
+  /*!
    * \brief Get if the upwind scheme used MUSCL or not.
    * \note This is the information that the code will use, the method will
    *       change in runtime depending of the specific equation (direct, adjoint,
@@ -4438,6 +4451,7 @@ public:
    * \return Kind of integration scheme for the plasma equations.
    */
   unsigned short GetKind_TimeIntScheme_Heat(void) const { return Kind_TimeIntScheme_Heat; }
+  unsigned short GetKind_TimeIntScheme_PT(void) const { return Kind_TimeIntScheme_PT; }
 
   /*!
    * \brief Get the kind of time stepping
@@ -4447,6 +4461,8 @@ public:
    * \return Kind of time stepping for the heat equation.
    */
   unsigned short GetKind_TimeStep_Heat(void) const { return Kind_TimeStep_Heat; }
+
+  unsigned short GetKind_TimeStep_PT(void) const { return Kind_TimeStep_PT; }
 
   /*!
    * \brief Get the kind of integration scheme (explicit or implicit)
@@ -4737,6 +4753,7 @@ public:
    * \return Kind of convective numerical scheme for the heat equation.
    */
   unsigned short GetKind_ConvNumScheme_Heat(void) const { return Kind_ConvNumScheme_Heat; }
+  unsigned short GetKind_ConvNumScheme_PT(void) const { return Kind_ConvNumScheme_PT; }
 
   /*!
    * \brief Get the kind of center convective numerical scheme for the adjoint turbulence equations.

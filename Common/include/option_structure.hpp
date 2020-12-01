@@ -199,6 +199,7 @@ enum ENUM_MAIN_SOLVER {
   FEM_RANS = 28,                    /*!< \brief Definition of the finite element Reynolds-averaged Navier-Stokes' (RANS) solver. */
   FEM_LES = 29,                     /*!< \brief Definition of the finite element Large Eddy Simulation Navier-Stokes' (LES) solver. */
   MULTIPHYSICS = 30,
+  PARTICLE_TRACKING = 31,
   NEMO_EULER = 41,                  /*!< \brief Definition of the NEMO Euler solver. */
   NEMO_NAVIER_STOKES = 42           /*!< \brief Definition of the NEMO NS solver. */
 };
@@ -235,6 +236,7 @@ static const MapType<string, ENUM_MAIN_SOLVER> Solver_Map = {
   MakePair("FLUID_STRUCTURE_INTERACTION", FLUID_STRUCTURE_INTERACTION)
   MakePair("TEMPLATE_SOLVER", TEMPLATE_SOLVER)
   MakePair("MULTIPHYSICS", MULTIPHYSICS)
+  MakePair("PARTICLE_TRACKING", PARTICLE_TRACKING)
 };
 
 /*!
@@ -449,6 +451,7 @@ enum RUNTIME_TYPE {
   RUNTIME_FEA_SYS = 20,       /*!< \brief One-physics case, the code is solving the FEA equation. */
   RUNTIME_ADJFEA_SYS = 30,    /*!< \brief One-physics case, the code is solving the adjoint FEA equation. */
   RUNTIME_HEAT_SYS = 21,      /*!< \brief One-physics case, the code is solving the heat equation. */
+  RUNTIME_PT_SYS = 25,        /*!< \brief One-physics case, the code is solving the PT equation. */
   RUNTIME_ADJHEAT_SYS = 31,   /*!< \brief One-physics case, the code is solving the adjoint heat equation. */
   RUNTIME_TRANS_SYS = 22,     /*!< \brief One-physics case, the code is solving the turbulence model. */
   RUNTIME_RADIATION_SYS = 23, /*!< \brief One-physics case, the code is solving the radiation model. */
@@ -466,6 +469,7 @@ const int HEAT_SOL = 5;     /*!< \brief Position of the heat equation in the sol
 const int ADJHEAT_SOL = 6;  /*!< \brief Position of the adjoint heat equation in the solution solver array. */
 const int RAD_SOL = 7;      /*!< \brief Position of the radiation equation in the solution solver array. */
 const int ADJRAD_SOL = 8;   /*!< \brief Position of the continuous adjoint turbulence solution in the solver container array. */
+const int PT_SOL = 11;
 
 const int MESH_SOL = 9;      /*!< \brief Position of the mesh solver. */
 const int ADJMESH_SOL = 10;   /*!< \brief Position of the adjoint of the mesh solver. */

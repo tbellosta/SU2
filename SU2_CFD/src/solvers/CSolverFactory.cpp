@@ -51,6 +51,7 @@
 #include "../../include/solvers/CBaselineSolver.hpp"
 #include "../../include/solvers/CBaselineSolver_FEM.hpp"
 #include "../../include/solvers/CRadP1Solver.hpp"
+#include "../../include/solvers/CPTSolver.hpp"
 
 map<const CSolver*, SolverMetaData> CSolverFactory::allocatedSolvers;
 
@@ -97,6 +98,9 @@ CSolver** CSolverFactory::CreateSolverContainer(ENUM_MAIN_SOLVER kindMainSolver,
       break;
     case HEAT_EQUATION:
       solver[HEAT_SOL] = CreateSubSolver(SUB_SOLVER_TYPE::HEAT, solver, geometry, config, iMGLevel);
+      break;
+    case PARTICLE_TRACKING:
+      solver[PT_SOL] = CreateSubSolver(SUB_SOLVER_TYPE::PT, solver, geometry, config, iMGLevel);
       break;
     case ADJ_EULER:
       solver[FLOW_SOL]    = CreateSubSolver(SUB_SOLVER_TYPE::EULER, solver, geometry, config, iMGLevel);
@@ -281,6 +285,10 @@ CSolver* CSolverFactory::CreateSubSolver(SUB_SOLVER_TYPE kindSolver, CSolver **s
       break;
     case SUB_SOLVER_TYPE::HEAT:
       genericSolver = CreateHeatSolver(solver, geometry, config, iMGLevel, false);
+      metaData.integrationType = INTEGRATION_TYPE::SINGLEGRID;
+      break;
+    case SUB_SOLVER_TYPE::PT:
+      genericSolver = new CPTSolver(geometry, config, iMGLevel);
       metaData.integrationType = INTEGRATION_TYPE::SINGLEGRID;
       break;
     case SUB_SOLVER_TYPE::DISC_ADJ_HEAT:

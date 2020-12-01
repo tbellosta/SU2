@@ -39,6 +39,7 @@
 #include "../../include/output/CAdjFlowIncOutput.hpp"
 #include "../../include/output/CHeatOutput.hpp"
 #include "../../include/output/CAdjHeatOutput.hpp"
+#include "../../include/output/CPTOutput.hpp"
 
 COutput* COutputFactory::CreateOutput(ENUM_MAIN_SOLVER kindSolver, CConfig* config, int nDim){
 
@@ -75,6 +76,9 @@ COutput* COutputFactory::CreateOutput(ENUM_MAIN_SOLVER kindSolver, CConfig* conf
       break;
     case FEM_EULER: case FEM_LES: case FEM_RANS: case FEM_NAVIER_STOKES:
       output = new CFlowCompFEMOutput(config, nDim);
+      break;
+    case PARTICLE_TRACKING:
+      output = new CPTOutput(config, nDim);
       break;
     default:
       output = new COutput(config, nDim, false);

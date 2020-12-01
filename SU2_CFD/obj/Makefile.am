@@ -78,11 +78,13 @@ libSU2Core_sources = ../src/definition_structure.cpp \
   ../src/iteration/CFEMFluidIteration.cpp \
   ../src/iteration/CFluidIteration.cpp \
   ../src/iteration/CHeatIteration.cpp \
+  ../src/iteration/CPTIteration.cpp \
   ../src/iteration/CTurboIteration.cpp \
   ../src/numerics/CNumerics.cpp \
   ../src/numerics/template.cpp \
   ../src/numerics/transition.cpp \
   ../src/numerics/heat.cpp \
+  ../src/numerics/particleTracking.cpp \
   ../src/numerics/radiation.cpp \
   ../src/numerics/flow/convection/roe.cpp \
   ../src/numerics/flow/convection/fds.cpp \
@@ -148,6 +150,7 @@ libSU2Core_sources = ../src/definition_structure.cpp \
   ../src/output/CFlowCompFEMOutput.cpp \
   ../src/output/CFlowIncOutput.cpp \
   ../src/output/CHeatOutput.cpp \
+  ../src/output/CPTOutput.cpp \
   ../src/output/CBaselineOutput.cpp \
   ../src/output/CAdjElasticityOutput.cpp \
   ../src/output/CAdjHeatOutput.cpp \
@@ -171,6 +174,7 @@ libSU2Core_sources = ../src/definition_structure.cpp \
   ../src/solvers/CFEM_DG_EulerSolver.cpp \
   ../src/solvers/CFEM_DG_NSSolver.cpp \
   ../src/solvers/CHeatSolver.cpp \
+  ../src/solvers/CPTSolver.cpp \
   ../src/solvers/CIncEulerSolver.cpp \
   ../src/solvers/CIncNSSolver.cpp \
   ../src/solvers/CMeshSolver.cpp \
@@ -204,6 +208,7 @@ libSU2Core_sources = ../src/definition_structure.cpp \
   ../src/variables/CMeshElement.cpp \
   ../src/variables/CMeshVariable.cpp \
   ../src/variables/CHeatVariable.cpp \
+  ../src/variables/CPTVariable.cpp \
   ../src/variables/CVariable.cpp \
   ../src/variables/CAdjNSVariable.cpp \
   ../src/variables/CTurbSSTVariable.cpp \

@@ -1,7 +1,7 @@
 /*!
- * \file CHeatSolver.cpp
- * \brief Main subrotuines for solving the heat equation
- * \author F. Palacios, T. Economon
+ * \file CPTSolver.cpp
+ * \brief Main subrotuines for solving the PT equations
+ * \author T. Bellosta
  * \version 7.0.7 "Blackbird"
  *
  * SU2 Project Website: https://su2code.github.io
@@ -25,16 +25,11 @@
  * License along with SU2. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "../../include/solvers/CPTSolver.hpp"
 
-#include "../../include/solvers/CHeatSolver.hpp"
+CPTSolver::CPTSolver(void) : CSolver() { }
 
-CHeatSolver::CHeatSolver(void) : CSolver() {
-
-  ConjugateVar = nullptr;
-  HeatFlux     = nullptr;
-}
-
-CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh) : CSolver() {
+CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh) : CSolver() {
 
   unsigned short iVar, iDim, nLineLets, iMarker;
   unsigned long iVertex;
@@ -43,8 +38,6 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
 
   int rank = MASTER_NODE;
 
-  bool heat_equation = ((config->GetKind_Solver() == HEAT_EQUATION) ||
-                        (config->GetKind_Solver() == DISC_ADJ_HEAT));
 
   /* A grid is defined as dynamic if there's rigid grid movement or grid deformation AND the problem is time domain */
   dynamic_grid = config->GetDynamic_Grid();
@@ -53,9 +46,17 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 #endif
 
-  /*--- Dimension of the problem --> temperature is the only conservative variable ---*/
+  /*--- Define geometry constants in the solver structure ---*/
 
-  nVar = 1;
+  nDim = geometry->GetnDim();
+  nMarker = config->GetnMarker_All();
+
+  CurrentMesh = iMesh;
+
+  /*--- Dimension of the problem  ---*/
+
+  nVar = 3;
+  if (nDim == 3) nVar++;
   nPoint = geometry->GetnPoint();
   nPointDomain = geometry->GetnPointDomain();
 
@@ -63,12 +64,6 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
 
   nVarGrad = nVar;
 
-  /*--- Define geometry constants in the solver structure ---*/
-
-  nDim = geometry->GetnDim();
-  nMarker = config->GetnMarker_All();
-
-  CurrentMesh = iMesh;
   /*--- Define some auxiliary vector related with the residual ---*/
 
   Residual      = new su2double[nVar];  for (iVar = 0; iVar < nVar; iVar++) Residual[iVar]      = 0.0;
@@ -102,8 +97,8 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
 
   /*--- Define some auxiliary vectors related to the primitive flow solution ---*/
 
-  Primitive_Flow_i = new su2double[nDim+1]; for (iVar = 0; iVar < nDim+1; iVar++) Primitive_Flow_i[iVar] = 0.0;
-  Primitive_Flow_j = new su2double[nDim+1]; for (iVar = 0; iVar < nDim+1; iVar++) Primitive_Flow_j[iVar] = 0.0;
+  Primitive_i = new su2double[nDim+1]; for (iVar = 0; iVar < nDim+1; iVar++) Primitive_i[iVar] = 0.0;
+  Primitive_j = new su2double[nDim+1]; for (iVar = 0; iVar < nDim+1; iVar++) Primitive_j[iVar] = 0.0;
 
   /*--- Jacobians and vector structures for implicit computations ---*/
 
@@ -116,7 +111,7 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
 
   /*--- Initialization of the structure of the whole Jacobian ---*/
 
-  if (rank == MASTER_NODE) cout << "Initialize Jacobian structure (heat equation) MG level: " << iMesh << "." << endl;
+  if (rank == MASTER_NODE) cout << "Initialize Jacobian structure (Eulerian Particle Tracking) MG level: " << iMesh << "." << endl;
   Jacobian.Initialize(nPoint, nPointDomain, nVar, nVar, true, geometry, config);
 
   if (config->GetKind_Linear_Solver_Prec() == LINELET) {
@@ -128,25 +123,25 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
   LinSysRes.Initialize(nPoint, nPointDomain, nVar, 0.0);
 
   if (config->GetExtraOutput()) {
-    if (nDim == 2) { nOutputVariables = 13; }
+    if (nDim == 2) { nOutputVariables = 13; }          /** DON'T KNOW HOW MANY AND WHICH VARIABLES **/
     else if (nDim == 3) { nOutputVariables = 19; }
     OutputVariables.Initialize(nPoint, nPointDomain, nOutputVariables, 0.0);
     OutputHeadingNames = new string[nOutputVariables];
   }
 
-  HeatFlux_per_Marker = new su2double[nMarker];
-  AverageT_per_Marker = new su2double[nMarker];
-  Surface_Areas       = new su2double[config->GetnMarker_HeatFlux()];
-
-  for(iMarker = 0; iMarker < nMarker; iMarker++) {
-    HeatFlux_per_Marker[iMarker]        = 0.0;
-    AverageT_per_Marker[iMarker]  = 0.0;
-  }
-  for(iMarker = 0; iMarker < config->GetnMarker_HeatFlux(); iMarker++) {
-    Surface_Areas[iMarker] = 0.0;
-  }
-
-  Set_Heatflux_Areas(geometry, config);
+//  HeatFlux_per_Marker = new su2double[nMarker];
+//  AverageT_per_Marker = new su2double[nMarker];
+//  Surface_Areas       = new su2double[config->GetnMarker_HeatFlux()];
+//
+//  for(iMarker = 0; iMarker < nMarker; iMarker++) {
+//    HeatFlux_per_Marker[iMarker]        = 0.0;
+//    AverageT_per_Marker[iMarker]  = 0.0;
+//  }
+//  for(iMarker = 0; iMarker < config->GetnMarker_HeatFlux(); iMarker++) {
+//    Surface_Areas[iMarker] = 0.0;
+//  }
+//
+//  Set_Heatflux_Areas(geometry, config);
 
   /*--- Set the reference values for temperature ---*/
 
@@ -168,47 +163,47 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
   /*--- Set the reference values for heat fluxes. If the heat solver runs stand-alone,
    *    thermal conductivity is read directly from config file ---*/
 
-  if (heat_equation) {
-
-    su2double rho_cp = config->GetDensity_Solid()*config->GetSpecific_Heat_Cp();
-    config->SetThermalDiffusivity_Solid(config->GetThermalConductivity_Solid() / rho_cp);
-
-    config->SetTemperature_FreeStreamND(config->GetTemperature_Initial_Solid()/config->GetTemperature_Ref());
-    config->SetHeat_Flux_Ref(rho_cp*Temperature_Ref);
-  }
-  else {
+//  if (heat_equation) {
+//
+//    su2double rho_cp = config->GetDensity_Solid()*config->GetSpecific_Heat_Cp();
+//    config->SetThermalDiffusivity_Solid(config->GetThermalConductivity_Solid() / rho_cp);
+//
+//    config->SetTemperature_FreeStreamND(config->GetTemperature_Initial_Solid()/config->GetTemperature_Ref());
+//    config->SetHeat_Flux_Ref(rho_cp*Temperature_Ref);
+//  }
+//  else {
 
     config->SetTemperature_FreeStreamND(config->GetTemperature_FreeStream()/config->GetTemperature_Ref());
     config->SetHeat_Flux_Ref(config->GetViscosity_Ref()*config->GetSpecific_Heat_Cp());
-  }
+//  }
 
   /*--- Store the value of the temperature and the heat flux density at the boundaries,
    used for communications with donor cells ---*/
 
-  unsigned short nConjVariables = 4;
-
-  ConjugateVar = new su2double** [nMarker];
-  for (iMarker = 0; iMarker < nMarker; iMarker++) {
-    ConjugateVar[iMarker] = new su2double* [geometry->nVertex[iMarker]];
-    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
-
-      ConjugateVar[iMarker][iVertex] = new su2double [nConjVariables];
-      for (iVar = 0; iVar < nConjVariables ; iVar++) {
-        ConjugateVar[iMarker][iVertex][iVar] = 0.0;
-      }
-      ConjugateVar[iMarker][iVertex][0] = config->GetTemperature_FreeStreamND();
-    }
-  }
+//  unsigned short nConjVariables = 4;
+//
+//  ConjugateVar = new su2double** [nMarker];
+//  for (iMarker = 0; iMarker < nMarker; iMarker++) {
+//    ConjugateVar[iMarker] = new su2double* [geometry->nVertex[iMarker]];
+//    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
+//
+//      ConjugateVar[iMarker][iVertex] = new su2double [nConjVariables];
+//      for (iVar = 0; iVar < nConjVariables ; iVar++) {
+//        ConjugateVar[iMarker][iVertex][iVar] = 0.0;
+//      }
+//      ConjugateVar[iMarker][iVertex][0] = config->GetTemperature_FreeStreamND();
+//    }
+//  }
 
   /*--- Heat flux in all the markers ---*/
 
-  HeatFlux = new su2double* [nMarker];
-  for (iMarker = 0; iMarker < nMarker; iMarker++) {
-    HeatFlux[iMarker] = new su2double [geometry->nVertex[iMarker]];
-    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
-      HeatFlux[iMarker][iVertex] = 0.0;
-    }
-  }
+//  HeatFlux = new su2double* [nMarker];
+//  for (iMarker = 0; iMarker < nMarker; iMarker++) {
+//    HeatFlux[iMarker] = new su2double [geometry->nVertex[iMarker]];
+//    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
+//      HeatFlux[iMarker][iVertex] = 0.0;
+//    }
+//  }
 
   if (multizone){
     /*--- Initialize the BGS residuals. ---*/
@@ -227,7 +222,7 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
 
   /*--- Initialize the nodes vector. ---*/
 
-  nodes = new CHeatVariable(config->GetTemperature_FreeStreamND(), nPoint, nDim, nVar, config);
+  nodes = new CPTVariable(config->GetTemperature_FreeStreamND(), config->GetVelocity_FreeStreamND(), nPoint, nDim, nVar, config);
 
   SetBaseClassPointerToNodes();
 
@@ -238,41 +233,38 @@ CHeatSolver::CHeatSolver(CGeometry *geometry, CConfig *config, unsigned short iM
 
   /*--- Add the solver name (max 8 characters) ---*/
 
-  SolverName = "HEAT";
+  SolverName = "PT";
 }
 
-CHeatSolver::~CHeatSolver(void) {
+CPTSolver::~CPTSolver(void) {
 
   unsigned short iMarker;
 
-  if (HeatFlux != nullptr) {
-    for (iMarker = 0; iMarker < nMarker; iMarker++) {
-      delete [] HeatFlux[iMarker];
-    }
-    delete [] HeatFlux;
-  }
+//  if (HeatFlux != nullptr) {
+//    for (iMarker = 0; iMarker < nMarker; iMarker++) {
+//      delete [] HeatFlux[iMarker];
+//    }
+//    delete [] HeatFlux;
+//  }
 
   delete nodes;
 }
 
-void CHeatSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh, unsigned short iRKStep, unsigned short RunTime_EqSystem, bool Output) {
+void CPTSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh, unsigned short iRKStep, unsigned short RunTime_EqSystem, bool Output) {
 
   unsigned long iPoint;
-  bool center = (config->GetKind_ConvNumScheme_Heat() == SPACE_CENTERED);
+  bool center = (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED);
 
   if (center) {
     SetUndivided_Laplacian(geometry, config);
   }
 
   for (iPoint = 0; iPoint < nPoint; iPoint ++) {
-
     /*--- Initialize the residual vector ---*/
-
     LinSysRes.SetBlock_Zero(iPoint);
   }
 
   /*--- Initialize the Jacobian matrices ---*/
-
   Jacobian.SetValZero();
 
   if (config->GetReconstructionGradientRequired()) {
@@ -287,9 +279,9 @@ void CHeatSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container,
   if (config->GetKind_Gradient_Method() == WEIGHTED_LEAST_SQUARES) SetSolution_Gradient_LS(geometry, config);
 }
 
-void CHeatSolver::Postprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh) { }
+void CPTSolver::Postprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh) { }
 
-void CHeatSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *config, int val_iter, bool val_update_geo) {
+void CPTSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *config, int val_iter, bool val_update_geo) {
 
   /*--- Restart the solution from file information ---*/
 
@@ -402,10 +394,10 @@ void CHeatSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *
    on the fine level in order to have all necessary quantities updated,
    especially if this is a turbulent simulation (eddy viscosity). ---*/
 
-  solver[MESH_0][HEAT_SOL]->InitiateComms(geometry[MESH_0], config, SOLUTION);
-  solver[MESH_0][HEAT_SOL]->CompleteComms(geometry[MESH_0], config, SOLUTION);
+  solver[MESH_0][PT_SOL]->InitiateComms(geometry[MESH_0], config, SOLUTION);
+  solver[MESH_0][PT_SOL]->CompleteComms(geometry[MESH_0], config, SOLUTION);
 
-  solver[MESH_0][HEAT_SOL]->Preprocessing(geometry[MESH_0], solver[MESH_0], config, MESH_0, NO_RK_ITER, RUNTIME_HEAT_SYS, false);
+  solver[MESH_0][PT_SOL]->Preprocessing(geometry[MESH_0], solver[MESH_0], config, MESH_0, NO_RK_ITER, RUNTIME_PT_SYS, false);
 
   /*--- Interpolate the solution down to the coarse multigrid levels ---*/
 
@@ -421,11 +413,11 @@ void CHeatSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *
           Solution[iVar] += Solution_Fine[iVar]*Area_Children/Area_Parent;
         }
       }
-      solver[iMesh][HEAT_SOL]->GetNodes()->SetSolution(iPoint,Solution);
+      solver[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint,Solution);
     }
-    solver[iMesh][HEAT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
-    solver[iMesh][HEAT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
-    solver[iMesh][HEAT_SOL]->Preprocessing(geometry[iMesh], solver[iMesh], config, iMesh, NO_RK_ITER, RUNTIME_HEAT_SYS, false);
+    solver[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
+    solver[iMesh][PT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
+    solver[iMesh][PT_SOL]->Preprocessing(geometry[iMesh], solver[iMesh], config, iMesh, NO_RK_ITER, RUNTIME_PT_SYS, false);
   }
 
   delete [] Coord;
@@ -439,7 +431,7 @@ void CHeatSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *
 }
 
 
-void CHeatSolver::SetUndivided_Laplacian(CGeometry *geometry, CConfig *config) {
+void CPTSolver::SetUndivided_Laplacian(CGeometry *geometry, CConfig *config) {
 
   unsigned long iPoint, jPoint, iEdge;
   su2double *Diff;
@@ -491,12 +483,12 @@ void CHeatSolver::SetUndivided_Laplacian(CGeometry *geometry, CConfig *config) {
 
 }
 
-void CHeatSolver::Centered_Residual(CGeometry *geometry, CSolver **solver_container,  CNumerics **numerics_container,
+void CPTSolver::Centered_Residual(CGeometry *geometry, CSolver **solver_container,  CNumerics **numerics_container,
                                     CConfig *config, unsigned short iMesh, unsigned short iRKStep) {
 
   CNumerics* numerics = numerics_container[CONV_TERM];
 
-  su2double *V_i, *V_j, Temp_i, Temp_j;
+  su2double *V_i, *V_j, *W_i, *W_j;
   unsigned long iEdge, iPoint, jPoint;
   bool flow = ((config->GetKind_Solver() == INC_NAVIER_STOKES)
                || (config->GetKind_Solver() == INC_RANS)
@@ -518,14 +510,14 @@ void CHeatSolver::Centered_Residual(CGeometry *geometry, CSolver **solver_contai
       V_i = solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(iPoint);
       V_j = solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(jPoint);
 
-      Temp_i = nodes->GetSolution(iPoint,0);
-      Temp_j = nodes->GetSolution(jPoint,0);
+      W_i = nodes->GetSolution(iPoint);
+      W_i = nodes->GetSolution(jPoint);
 
       numerics->SetUndivided_Laplacian(nodes->GetUndivided_Laplacian(iPoint), nodes->GetUndivided_Laplacian(jPoint));
       numerics->SetNeighbor(geometry->nodes->GetnNeighbor(iPoint), geometry->nodes->GetnNeighbor(jPoint));
 
       numerics->SetPrimitive(V_i, V_j);
-      numerics->SetTemperature(Temp_i, Temp_j);
+//      numerics->SetTemperature(Temp_i, Temp_j);
 
       numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
 
@@ -539,13 +531,13 @@ void CHeatSolver::Centered_Residual(CGeometry *geometry, CSolver **solver_contai
   }
 }
 
-void CHeatSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
+void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
                                   CNumerics **numerics_container, CConfig *config, unsigned short iMesh) {
 
   CNumerics* numerics = numerics_container[CONV_TERM];
 
-  su2double *V_i, *V_j, Temp_i, Temp_i_Corrected, Temp_j, Temp_j_Corrected, **Gradient_i, **Gradient_j, Project_Grad_i, Project_Grad_j,
-            **Temp_i_Grad, **Temp_j_Grad, Project_Temp_i_Grad, Project_Temp_j_Grad;
+  su2double *V_i, *V_j, *Sol_i, *Sol_i_Corrected, *Sol_j, *Sol_j_Corrected, **Gradient_i, **Gradient_j, Project_Grad_i, Project_Grad_j,
+      **Temp_i_Grad, **Temp_j_Grad, Project_Temp_i_Grad, Project_Temp_j_Grad;
   unsigned short iDim, iVar;
   unsigned long iEdge, iPoint, jPoint;
   bool flow = ((config->GetKind_Solver() == INC_NAVIER_STOKES)
@@ -566,15 +558,15 @@ void CHeatSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_containe
       numerics->SetNormal(geometry->edges->GetNormal(iEdge));
 
       /*--- Primitive variables w/o reconstruction ---*/
-      V_i = solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(iPoint);
-      V_j = solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(jPoint);
+      V_i = nodes->GetPrimitive(iPoint);
+      V_j = nodes->GetPrimitive(jPoint);
 
-      Temp_i_Grad = nodes->GetGradient(iPoint);
-      Temp_j_Grad = nodes->GetGradient(jPoint);
-      numerics->SetConsVarGradient(Temp_i_Grad, Temp_j_Grad);
+//      Temp_i_Grad = nodes->GetGradient(iPoint);
+//      Temp_j_Grad = nodes->GetGradient(jPoint);
+//      numerics->SetConsVarGradient(Temp_i_Grad, Temp_j_Grad);
 
-      Temp_i = nodes->GetSolution(iPoint,0);
-      Temp_j = nodes->GetSolution(jPoint,0);
+      Sol_i = nodes->GetSolution(iPoint);
+      Sol_j = nodes->GetSolution(jPoint);
 
       /* Second order reconstruction */
       if (muscl) {
@@ -584,43 +576,32 @@ void CHeatSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_containe
           Vector_j[iDim] = 0.5*(geometry->nodes->GetCoord(iPoint, iDim) - geometry->nodes->GetCoord(jPoint, iDim));
         }
 
-        Gradient_i = solver_container[FLOW_SOL]->GetNodes()->GetGradient_Reconstruction(iPoint);
-        Gradient_j = solver_container[FLOW_SOL]->GetNodes()->GetGradient_Reconstruction(jPoint);
-        Temp_i_Grad = nodes->GetGradient_Reconstruction(iPoint);
-        Temp_j_Grad = nodes->GetGradient_Reconstruction(jPoint);
+//        Gradient_i = solver_container[FLOW_SOL]->GetNodes()->GetGradient_Reconstruction(iPoint);
+//        Gradient_j = solver_container[FLOW_SOL]->GetNodes()->GetGradient_Reconstruction(jPoint);
+        Gradient_i = nodes->GetGradient_Reconstruction(iPoint);
+        Gradient_j = nodes->GetGradient_Reconstruction(jPoint);
 
-        /*Loop to correct the flow variables*/
+        /*Loop to correct the PT variables*/
         for (iVar = 0; iVar < nVarFlow; iVar++) {
 
-          /*Apply the Gradient to get the right temperature value on the edge */
+          /*Apply the Gradient to get the right primitive value on the edge */
           Project_Grad_i = 0.0; Project_Grad_j = 0.0;
           for (iDim = 0; iDim < nDim; iDim++) {
-              Project_Grad_i += Vector_i[iDim]*Gradient_i[iVar][iDim];
-              Project_Grad_j += Vector_j[iDim]*Gradient_j[iVar][iDim];
+            Project_Grad_i += Vector_i[iDim]*Gradient_i[iVar][iDim];
+            Project_Grad_j += Vector_j[iDim]*Gradient_j[iVar][iDim];
           }
 
-          Primitive_Flow_i[iVar] = V_i[iVar] + Project_Grad_i;
-          Primitive_Flow_j[iVar] = V_j[iVar] + Project_Grad_j;
+          Primitive_i[iVar] = V_i[iVar] + Project_Grad_i;
+          Primitive_j[iVar] = V_j[iVar] + Project_Grad_j;
         }
 
-        /* Correct the temperature variables */
-        Project_Temp_i_Grad = 0.0; Project_Temp_j_Grad = 0.0;
-        for (iDim = 0; iDim < nDim; iDim++) {
-            Project_Temp_i_Grad += Vector_i[iDim]*Temp_i_Grad[0][iDim];
-            Project_Temp_j_Grad += Vector_j[iDim]*Temp_j_Grad[0][iDim];
-        }
-
-        Temp_i_Corrected = Temp_i + Project_Temp_i_Grad;
-        Temp_j_Corrected = Temp_j + Project_Temp_j_Grad;
-
-        numerics->SetPrimitive(Primitive_Flow_i, Primitive_Flow_j);
-        numerics->SetTemperature(Temp_i_Corrected, Temp_j_Corrected);
+        numerics->SetPrimitive(Primitive_i, Primitive_j);
+        numerics->SetConservative(Sol_i, Sol_j); /** @todo primitve is not extrapolated **/
       }
-
       else {
 
         numerics->SetPrimitive(V_i, V_j);
-        numerics->SetTemperature(Temp_i, Temp_j);
+        numerics->SetConservative(Sol_i, Sol_j);
       }
 
       numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
@@ -636,139 +617,12 @@ void CHeatSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_containe
 
 }
 
-void CHeatSolver::Viscous_Residual(CGeometry *geometry, CSolver **solver_container, CNumerics **numerics_container,
-                                   CConfig *config, unsigned short iMesh, unsigned short iRKStep) {
+void CPTSolver::Viscous_Residual(CGeometry *geometry, CSolver **solver_container, CNumerics **numerics_container,
+                                   CConfig *config, unsigned short iMesh, unsigned short iRKStep) { }
 
-  CNumerics* numerics = numerics_container[VISC_TERM];
 
-  su2double laminar_viscosity, Prandtl_Lam, Prandtl_Turb, eddy_viscosity_i, eddy_viscosity_j,
-      thermal_diffusivity_i, thermal_diffusivity_j, Temp_i, Temp_j, **Temp_i_Grad, **Temp_j_Grad;
-  unsigned long iEdge, iPoint, jPoint;
-
-  bool flow = ((config->GetKind_Solver() == INC_NAVIER_STOKES)
-               || (config->GetKind_Solver() == INC_RANS)
-               || (config->GetKind_Solver() == DISC_ADJ_INC_NAVIER_STOKES)
-               || (config->GetKind_Solver() == DISC_ADJ_INC_RANS));
-
-  bool turb = ((config->GetKind_Solver() == INC_RANS) || (config->GetKind_Solver() == DISC_ADJ_INC_RANS));
-
-  eddy_viscosity_i = 0.0;
-  eddy_viscosity_j = 0.0;
-  laminar_viscosity = config->GetMu_ConstantND();
-  Prandtl_Lam = config->GetPrandtl_Lam();
-  Prandtl_Turb = config->GetPrandtl_Turb();
-
-  for (iEdge = 0; iEdge < geometry->GetnEdge(); iEdge++) {
-
-    iPoint = geometry->edges->GetNode(iEdge,0);
-    jPoint = geometry->edges->GetNode(iEdge,1);
-
-    /*--- Points coordinates, and normal vector ---*/
-
-    numerics->SetCoord(geometry->nodes->GetCoord(iPoint),
-                       geometry->nodes->GetCoord(jPoint));
-    numerics->SetNormal(geometry->edges->GetNormal(iEdge));
-
-    Temp_i_Grad = nodes->GetGradient(iPoint);
-    Temp_j_Grad = nodes->GetGradient(jPoint);
-    numerics->SetConsVarGradient(Temp_i_Grad, Temp_j_Grad);
-
-    /*--- Primitive variables w/o reconstruction ---*/
-    Temp_i = nodes->GetSolution(iPoint,0);
-    Temp_j = nodes->GetSolution(jPoint,0);
-    numerics->SetTemperature(Temp_i, Temp_j);
-
-    /*--- Eddy viscosity to compute thermal conductivity ---*/
-    if (flow) {
-      if (turb) {
-        eddy_viscosity_i = solver_container[TURB_SOL]->GetNodes()->GetmuT(iPoint);
-        eddy_viscosity_j = solver_container[TURB_SOL]->GetNodes()->GetmuT(jPoint);
-      }
-      thermal_diffusivity_i = (laminar_viscosity/Prandtl_Lam) + (eddy_viscosity_i/Prandtl_Turb);
-      thermal_diffusivity_j = (laminar_viscosity/Prandtl_Lam) + (eddy_viscosity_j/Prandtl_Turb);
-    }
-    else {
-      thermal_diffusivity_i = config->GetThermalDiffusivity_Solid();
-      thermal_diffusivity_j = config->GetThermalDiffusivity_Solid();
-    }
-
-    numerics->SetThermalDiffusivity(thermal_diffusivity_i,thermal_diffusivity_j);
-
-    /*--- Compute residual, and Jacobians ---*/
-
-    numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
-
-    /*--- Add and subtract residual, and update Jacobians ---*/
-
-    LinSysRes.SubtractBlock(iPoint, Residual);
-    LinSysRes.AddBlock(jPoint, Residual);
-
-    Jacobian.UpdateBlocksSub(iEdge, iPoint, jPoint, Jacobian_i, Jacobian_j);
-  }
-}
-
-void CHeatSolver::Set_Heatflux_Areas(CGeometry *geometry, CConfig *config) {
-
-  unsigned short iMarker, iMarker_HeatFlux, Monitoring, iDim;
-  unsigned long iPoint, iVertex;
-  string HeatFlux_Tag, Marker_Tag;
-
-  su2double *Local_Surface_Areas, Local_HeatFlux_Areas_Monitor, Area, *Normal;
-  Local_Surface_Areas = new su2double[config->GetnMarker_HeatFlux()];
-
-  for ( iMarker_HeatFlux = 0; iMarker_HeatFlux < config->GetnMarker_HeatFlux(); iMarker_HeatFlux++ ) {
-    Local_Surface_Areas[iMarker_HeatFlux] = 0.0;
-  }
-  Local_HeatFlux_Areas_Monitor = 0.0;
-
-  for (iMarker = 0; iMarker < nMarker; iMarker++) {
-
-    Monitoring = config->GetMarker_All_Monitoring(iMarker);
-
-    for ( iMarker_HeatFlux = 0; iMarker_HeatFlux < config->GetnMarker_HeatFlux(); iMarker_HeatFlux++ ) {
-
-      HeatFlux_Tag = config->GetMarker_HeatFlux_TagBound(iMarker_HeatFlux);
-      Marker_Tag = config->GetMarker_All_TagBound(iMarker);
-
-      if (Marker_Tag == HeatFlux_Tag) {
-
-        Local_Surface_Areas[iMarker_HeatFlux] = 0.0;
-
-        for( iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++ ) {
-
-          iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
-
-          if(geometry->nodes->GetDomain(iPoint)) {
-
-            Normal = geometry->vertex[iMarker][iVertex]->GetNormal();
-            Area = 0.0;
-            for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim];
-            Area = sqrt(Area);
-
-            Local_Surface_Areas[iMarker_HeatFlux] += Area;
-
-            if(Monitoring == YES) {
-              Local_HeatFlux_Areas_Monitor += Area;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  SU2_MPI::Allreduce(Local_Surface_Areas, Surface_Areas, config->GetnMarker_HeatFlux(), MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  SU2_MPI::Allreduce(&Local_HeatFlux_Areas_Monitor, &Total_HeatFlux_Areas_Monitor, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-  Total_HeatFlux_Areas = 0.0;
-  for( iMarker_HeatFlux = 0; iMarker_HeatFlux < config->GetnMarker_HeatFlux(); iMarker_HeatFlux++ ) {
-    Total_HeatFlux_Areas += Surface_Areas[iMarker_HeatFlux];
-  }
-
-  delete[] Local_Surface_Areas;
-}
-
-void CHeatSolver::BC_Isothermal_Wall(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config,
-                                       unsigned short val_marker) {
+void CPTSolver::BC_Isothermal_Wall(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config,
+                                     unsigned short val_marker) {
 
   unsigned long iPoint, iVertex, Point_Normal;
   unsigned short iDim;
@@ -797,43 +651,43 @@ void CHeatSolver::BC_Isothermal_Wall(CGeometry *geometry, CSolver **solver_conta
 
     if (geometry->nodes->GetDomain(iPoint)) {
 
-        Point_Normal = geometry->vertex[val_marker][iVertex]->GetNormal_Neighbor();
+      Point_Normal = geometry->vertex[val_marker][iVertex]->GetNormal_Neighbor();
 
-        Normal = geometry->vertex[val_marker][iVertex]->GetNormal();
-        Area = 0.0;
-        for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim];
-        Area = sqrt (Area);
+      Normal = geometry->vertex[val_marker][iVertex]->GetNormal();
+      Area = 0.0;
+      for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim];
+      Area = sqrt (Area);
 
-        Coord_i = geometry->nodes->GetCoord(iPoint);
-        Coord_j = geometry->nodes->GetCoord(Point_Normal);
-        dist_ij = 0;
-        for (iDim = 0; iDim < nDim; iDim++)
-          dist_ij += (Coord_j[iDim]-Coord_i[iDim])*(Coord_j[iDim]-Coord_i[iDim]);
-        dist_ij = sqrt(dist_ij);
+      Coord_i = geometry->nodes->GetCoord(iPoint);
+      Coord_j = geometry->nodes->GetCoord(Point_Normal);
+      dist_ij = 0;
+      for (iDim = 0; iDim < nDim; iDim++)
+        dist_ij += (Coord_j[iDim]-Coord_i[iDim])*(Coord_j[iDim]-Coord_i[iDim]);
+      dist_ij = sqrt(dist_ij);
 
-        dTdn = -(nodes->GetSolution(Point_Normal,0) - Twall)/dist_ij;
+      dTdn = -(nodes->GetSolution(Point_Normal,0) - Twall)/dist_ij;
 
-        if(flow) {
-          thermal_diffusivity = laminar_viscosity/Prandtl_Lam;
-        }
-        else
-          thermal_diffusivity = config->GetThermalDiffusivity_Solid();
+      if(flow) {
+        thermal_diffusivity = laminar_viscosity/Prandtl_Lam;
+      }
+      else
+        thermal_diffusivity = config->GetThermalDiffusivity_Solid();
 
-        Res_Visc[0] = thermal_diffusivity*dTdn*Area;
+      Res_Visc[0] = thermal_diffusivity*dTdn*Area;
 
-        if(implicit) {
+      if(implicit) {
 
-          Jacobian_i[0][0] = -thermal_diffusivity/dist_ij * Area;
-        }
+        Jacobian_i[0][0] = -thermal_diffusivity/dist_ij * Area;
+      }
 
-        LinSysRes.SubtractBlock(iPoint, Res_Visc);
-        Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
+      LinSysRes.SubtractBlock(iPoint, Res_Visc);
+      Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
     }
   }
 }
 
-void CHeatSolver::BC_HeatFlux_Wall(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config,
-                                                     unsigned short val_marker) {
+void CPTSolver::BC_HeatFlux_Wall(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config,
+                                   unsigned short val_marker) {
 
   unsigned short iDim;
   unsigned long iVertex, iPoint;
@@ -886,8 +740,8 @@ void CHeatSolver::BC_HeatFlux_Wall(CGeometry *geometry, CSolver **solver_contain
   }
 }
 
-void CHeatSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
-                            CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
+void CPTSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
+                           CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
 
   unsigned short iDim;
   unsigned long iVertex, iPoint, Point_Normal;
@@ -1004,8 +858,8 @@ void CHeatSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
 
 }
 
-void CHeatSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container,
-                             CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
+void CPTSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container,
+                            CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
 
   unsigned short iDim;
   unsigned long iVertex, iPoint, Point_Normal;
@@ -1033,37 +887,37 @@ void CHeatSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container,
       for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
 
       if(flow) {
-          conv_numerics->SetNormal(Normal);
+        conv_numerics->SetNormal(Normal);
 
-          /*--- Retrieve solution at this boundary node ---*/
+        /*--- Retrieve solution at this boundary node ---*/
 
-          V_domain = solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(iPoint);
+        V_domain = solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(iPoint);
 
-          /*--- Retrieve the specified velocity for the inlet. ---*/
+        /*--- Retrieve the specified velocity for the inlet. ---*/
 
-          V_outlet = solver_container[FLOW_SOL]->GetCharacPrimVar(val_marker, iVertex);
-          for (iDim = 0; iDim < nDim; iDim++)
-            V_outlet[iDim+1] = solver_container[FLOW_SOL]->GetNodes()->GetVelocity(Point_Normal, iDim);
+        V_outlet = solver_container[FLOW_SOL]->GetCharacPrimVar(val_marker, iVertex);
+        for (iDim = 0; iDim < nDim; iDim++)
+          V_outlet[iDim+1] = solver_container[FLOW_SOL]->GetNodes()->GetVelocity(Point_Normal, iDim);
 
-          conv_numerics->SetPrimitive(V_domain, V_outlet);
+        conv_numerics->SetPrimitive(V_domain, V_outlet);
 
-          if (dynamic_grid)
-            conv_numerics->SetGridVel(geometry->nodes->GetGridVel(iPoint), geometry->nodes->GetGridVel(iPoint));
+        if (dynamic_grid)
+          conv_numerics->SetGridVel(geometry->nodes->GetGridVel(iPoint), geometry->nodes->GetGridVel(iPoint));
 
-          conv_numerics->SetTemperature(nodes->GetSolution(iPoint,0), nodes->GetSolution(Point_Normal,0));
+        conv_numerics->SetTemperature(nodes->GetSolution(iPoint,0), nodes->GetSolution(Point_Normal,0));
 
-          /*--- Compute the residual using an upwind scheme ---*/
+        /*--- Compute the residual using an upwind scheme ---*/
 
-          conv_numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
+        conv_numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
 
-          /*--- Update residual value ---*/
+        /*--- Update residual value ---*/
 
-          LinSysRes.AddBlock(iPoint, Residual);
+        LinSysRes.AddBlock(iPoint, Residual);
 
-          /*--- Jacobian contribution for implicit integration ---*/
+        /*--- Jacobian contribution for implicit integration ---*/
 
-          if (implicit)
-            Jacobian.AddBlock2Diag(iPoint, Jacobian_i);
+        if (implicit)
+          Jacobian.AddBlock2Diag(iPoint, Jacobian_i);
       }
     }
   }
@@ -1073,236 +927,7 @@ void CHeatSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container,
 
 }
 
-void CHeatSolver::BC_ConjugateHeat_Interface(CGeometry *geometry, CSolver **solver_container, CNumerics *numerics, CConfig *config, unsigned short val_marker) {
-
-  unsigned long iVertex, iPoint, total_index;
-  unsigned short iDim, iVar;
-
-  su2double thermal_diffusivity, rho_cp_solid, Temperature_Ref, T_Conjugate, Tinterface,
-      Tnormal_Conjugate, HeatFluxDensity, HeatFlux, Area;
-
-  bool implicit = (config->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
-  bool flow = ((config->GetKind_Solver() == INC_NAVIER_STOKES)
-               || (config->GetKind_Solver() == INC_RANS)
-               || (config->GetKind_Solver() == DISC_ADJ_INC_NAVIER_STOKES)
-               || (config->GetKind_Solver() == DISC_ADJ_INC_RANS));
-
-  su2double *Normal = new su2double[nDim];
-
-  Temperature_Ref       = config->GetTemperature_Ref();
-  rho_cp_solid          = config->GetDensity_Solid()*config->GetSpecific_Heat_Cp();
-
-  if (flow) {
-
-    for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
-
-      iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
-
-      if (geometry->nodes->GetDomain(iPoint)) {
-
-        Normal = geometry->vertex[val_marker][iVertex]->GetNormal();
-        Area = 0.0;
-        for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim];
-        Area = sqrt (Area);
-
-        T_Conjugate = GetConjugateHeatVariable(val_marker, iVertex, 0)/Temperature_Ref;
-
-        nodes->SetSolution_Old(iPoint,&T_Conjugate);
-        LinSysRes(iPoint, 0) = 0.0;
-        nodes->SetRes_TruncErrorZero(iPoint);
-
-        if (implicit) {
-          for (iVar = 0; iVar < nVar; iVar++) {
-            total_index = iPoint*nVar+iVar;
-            Jacobian.DeleteValsRowi(total_index);
-          }
-        }
-      }
-    }
-  }
-  else {
-
-    for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
-
-      iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
-
-      if (geometry->nodes->GetDomain(iPoint)) {
-
-        Normal = geometry->vertex[val_marker][iVertex]->GetNormal();
-        Area = 0.0;
-        for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim];
-        Area = sqrt(Area);
-
-        thermal_diffusivity = GetConjugateHeatVariable(val_marker, iVertex, 2)/rho_cp_solid;
-
-        if ((config->GetKind_CHT_Coupling() == DIRECT_TEMPERATURE_ROBIN_HEATFLUX) ||
-            (config->GetKind_CHT_Coupling() == AVERAGED_TEMPERATURE_ROBIN_HEATFLUX)) {
-
-          Tinterface        = nodes->GetSolution(iPoint,0);
-          Tnormal_Conjugate = GetConjugateHeatVariable(val_marker, iVertex, 3)/Temperature_Ref;
-
-          HeatFluxDensity   = thermal_diffusivity*(Tinterface - Tnormal_Conjugate);
-          HeatFlux          = HeatFluxDensity * Area;
-        }
-        else {
-
-          HeatFluxDensity = GetConjugateHeatVariable(val_marker, iVertex, 1)/config->GetHeat_Flux_Ref();
-          HeatFlux        = HeatFluxDensity*Area;
-        }
-
-        Res_Visc[0] = -HeatFlux;
-        LinSysRes.SubtractBlock(iPoint, Res_Visc);
-
-        if (implicit) {
-
-          Jacobian_i[0][0] = thermal_diffusivity*Area;
-          Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
-        }
-      }
-    }
-  }
-}
-
-void CHeatSolver::Heat_Fluxes(CGeometry *geometry, CSolver **solver_container, CConfig *config) {
-
-  unsigned long iVertex, iPoint, iPointNormal;
-  unsigned short Boundary, Monitoring, iMarker, iDim;
-  su2double *Coord, *Coord_Normal, *Normal, Area, dist, Twall, dTdn, thermal_diffusivity;
-  string Marker_Tag, HeatFlux_Tag;
-
-  bool flow = ((config->GetKind_Solver() == INC_NAVIER_STOKES)
-               || (config->GetKind_Solver() == INC_RANS)
-               || (config->GetKind_Solver() == DISC_ADJ_INC_NAVIER_STOKES)
-               || (config->GetKind_Solver() == DISC_ADJ_INC_RANS));
-
-#ifdef HAVE_MPI
-  su2double MyAllBound_HeatFlux, MyAllBound_AverageT;
-#endif
-
-  AllBound_HeatFlux = 0.0;
-  AllBound_AverageT = 0.0;
-
-  for ( iMarker = 0; iMarker < nMarker; iMarker++ ) {
-
-    AverageT_per_Marker[iMarker]  = 0.0;
-    HeatFlux_per_Marker[iMarker]  = 0.0;
-
-    Boundary = config->GetMarker_All_KindBC(iMarker);
-    Marker_Tag = config->GetMarker_All_TagBound(iMarker);
-    Monitoring = config->GetMarker_All_Monitoring(iMarker);
-
-    if ( Boundary == ISOTHERMAL ) {
-
-      Twall = config->GetIsothermal_Temperature(Marker_Tag)/config->GetTemperature_Ref();
-
-      for( iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++ ) {
-
-        iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
-
-        if(geometry->nodes->GetDomain(iPoint)) {
-
-          iPointNormal = geometry->vertex[iMarker][iVertex]->GetNormal_Neighbor();
-
-          Coord = geometry->nodes->GetCoord(iPoint);
-          Coord_Normal = geometry->nodes->GetCoord(iPointNormal);
-
-          Normal = geometry->vertex[iMarker][iVertex]->GetNormal();
-          Area = 0.0;
-          for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim];
-          Area = sqrt(Area);
-
-          dist = 0.0;
-          for (iDim = 0; iDim < nDim; iDim++) dist += (Coord_Normal[iDim]-Coord[iDim])*(Coord_Normal[iDim]-Coord[iDim]);
-          dist = sqrt(dist);
-
-          dTdn = (Twall - nodes->GetSolution(iPointNormal,0))/dist;
-
-          if(flow) {
-            thermal_diffusivity = config->GetViscosity_FreeStreamND()/config->GetPrandtl_Lam();
-          }
-          else {
-            thermal_diffusivity = config->GetThermalDiffusivity_Solid();
-          }
-
-          HeatFlux[iMarker][iVertex] = thermal_diffusivity*dTdn*config->GetHeat_Flux_Ref();
-
-          HeatFlux_per_Marker[iMarker] += HeatFlux[iMarker][iVertex]*Area;
-
-        }
-      }
-    }
-    else if ( Boundary == CHT_WALL_INTERFACE || Boundary == HEAT_FLUX ) {
-
-      for( iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++ ) {
-
-        iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
-
-        if(geometry->nodes->GetDomain(iPoint)) {
-
-          iPointNormal = geometry->vertex[iMarker][iVertex]->GetNormal_Neighbor();
-
-          Twall = nodes->GetSolution(iPoint,0);
-
-          Coord = geometry->nodes->GetCoord(iPoint);
-          Coord_Normal = geometry->nodes->GetCoord(iPointNormal);
-
-          Normal = geometry->vertex[iMarker][iVertex]->GetNormal();
-          Area = 0.0;
-          for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim]*Normal[iDim];
-          Area = sqrt(Area);
-
-          dist = 0.0;
-          for (iDim = 0; iDim < nDim; iDim++) dist += (Coord_Normal[iDim]-Coord[iDim])*(Coord_Normal[iDim]-Coord[iDim]);
-          dist = sqrt(dist);
-
-          dTdn = (Twall - nodes->GetSolution(iPointNormal,0))/dist;
-
-          if(flow) {
-            thermal_diffusivity = config->GetViscosity_FreeStreamND()/config->GetPrandtl_Lam();
-          }
-          else {
-            thermal_diffusivity = config->GetThermalDiffusivity_Solid();
-          }
-
-          HeatFlux[iMarker][iVertex] = thermal_diffusivity*dTdn*config->GetHeat_Flux_Ref();
-
-          HeatFlux_per_Marker[iMarker] += HeatFlux[iMarker][iVertex]*Area;
-
-          /*--- We do only aim to compute averaged temperatures on the (interesting) heat flux walls ---*/
-
-          if ( Boundary == HEAT_FLUX ) {
-
-            AverageT_per_Marker[iMarker] += Twall*config->GetTemperature_Ref()*Area;
-          }
-        }
-      }
-    }
-
-    if (Monitoring == YES) {
-
-      AllBound_HeatFlux += HeatFlux_per_Marker[iMarker];
-      AllBound_AverageT += AverageT_per_Marker[iMarker];
-    }
-  }
-
-#ifdef HAVE_MPI
-  MyAllBound_HeatFlux = AllBound_HeatFlux;
-  MyAllBound_AverageT = AllBound_AverageT;
-  SU2_MPI::Allreduce(&MyAllBound_HeatFlux, &AllBound_HeatFlux, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-  SU2_MPI::Allreduce(&MyAllBound_AverageT, &AllBound_AverageT, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-#endif
-
-  if (Total_HeatFlux_Areas_Monitor != 0.0) {
-    Total_AverageT = AllBound_AverageT/Total_HeatFlux_Areas_Monitor;
-  }
-  else {
-    Total_AverageT = 0.0;
-  }
-
-  Total_HeatFlux = AllBound_HeatFlux;
-}
-
-void CHeatSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CConfig *config,
+void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CConfig *config,
                                unsigned short iMesh, unsigned long Iteration) {
 
   unsigned short iDim, iMarker;
@@ -1519,10 +1144,10 @@ void CHeatSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, 
         Local_Delta_Time = min((2.0/3.0)*config->GetDelta_UnstTimeND(), nodes->GetDelta_Time(iPoint));
         nodes->SetDelta_Time(iPoint,Local_Delta_Time);
       }
-  }
+    }
 }
 
-void CHeatSolver::ExplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_container, CConfig *config) {
+void CPTSolver::ExplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_container, CConfig *config) {
 
   su2double *local_Residual, *local_Res_TruncError, Vol, Delta, Res;
   unsigned short iVar;
@@ -1567,7 +1192,7 @@ void CHeatSolver::ExplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_
 }
 
 
-void CHeatSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_container, CConfig *config) {
+void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_container, CConfig *config) {
 
   unsigned short iVar;
   unsigned long iPoint, total_index;
@@ -1601,14 +1226,8 @@ void CHeatSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_
 
     if (nodes->GetDelta_Time(iPoint) != 0.0) {
 
-      if(flow) {
-        Delta = Vol / nodes->GetDelta_Time(iPoint);
-        Jacobian.AddVal2Diag(iPoint, Delta);
-      }
-      else {
-        Delta = Vol / nodes->GetDelta_Time(iPoint);
-        Jacobian.AddVal2Diag(iPoint, Delta);
-      }
+      Delta = Vol / nodes->GetDelta_Time(iPoint);
+      Jacobian.AddVal2Diag(iPoint, Delta);
 
     } else {
       Jacobian.SetVal2Diag(iPoint, 1.0);
@@ -1661,7 +1280,7 @@ void CHeatSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_
 
 }
 
-void CHeatSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_container, CConfig *config, unsigned long TimeIter) {
+void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_container, CConfig *config, unsigned long TimeIter) {
 
   unsigned long iPoint, Point_Fine;
   unsigned short iMesh, iChildren, iVar;
@@ -1705,8 +1324,8 @@ void CHeatSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_co
      for a 1st-order restart or when simply intitializing to freestream. ---*/
 
     for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
-      solver_container[iMesh][HEAT_SOL]->GetNodes()->Set_Solution_time_n();
-      solver_container[iMesh][HEAT_SOL]->GetNodes()->Set_Solution_time_n1();
+      solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n();
+      solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n1();
     }
 
     if ((restart && (long)TimeIter == (long)config->GetRestart_Iter()) &&
@@ -1714,19 +1333,19 @@ void CHeatSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_co
 
       /*--- Load an additional restart file for a 2nd-order restart ---*/
 
-      solver_container[MESH_0][HEAT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
+      solver_container[MESH_0][PT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
 
       /*--- Push back this new solution to time level N. ---*/
 
       for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
-        solver_container[iMesh][HEAT_SOL]->GetNodes()->Set_Solution_time_n();
+        solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n();
       }
     }
   }
 }
 
-void CHeatSolver::SetResidual_DualTime(CGeometry *geometry, CSolver **solver_container, CConfig *config,
-                                        unsigned short iRKStep, unsigned short iMesh, unsigned short RunTime_EqSystem) {
+void CPTSolver::SetResidual_DualTime(CGeometry *geometry, CSolver **solver_container, CConfig *config,
+                                       unsigned short iRKStep, unsigned short iMesh, unsigned short RunTime_EqSystem) {
 
   /*--- Local variables ---*/
 
@@ -1771,7 +1390,7 @@ void CHeatSolver::SetResidual_DualTime(CGeometry *geometry, CSolver **solver_con
           Residual[iVar] = (U_time_nP1[iVar] - U_time_n[iVar])*Volume_nP1 / TimeStep;
         if (config->GetTime_Marching() == DT_STEPPING_2ND)
           Residual[iVar] = ( 3.0*U_time_nP1[iVar] - 4.0*U_time_n[iVar]
-                            +1.0*U_time_nM1[iVar])*Volume_nP1 / (2.0*TimeStep);
+                             +1.0*U_time_nM1[iVar])*Volume_nP1 / (2.0*TimeStep);
       }
 
       /*--- Store the residual and compute the Jacobian contribution due

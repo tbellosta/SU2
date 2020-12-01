@@ -36,6 +36,7 @@
 #include "../../include/iteration/CTurboIteration.hpp"
 #include "../../include/iteration/CHeatIteration.hpp"
 #include "../../include/iteration/CFEAIteration.hpp"
+#include "../../include/iteration/CPTIteration.hpp"
 
 CIteration* CIterationFactory::CreateIteration(ENUM_MAIN_SOLVER kindSolver, const CConfig* config){
 
@@ -114,6 +115,11 @@ CIteration* CIterationFactory::CreateIteration(ENUM_MAIN_SOLVER kindSolver, cons
 
     case NO_SOLVER: case FLUID_STRUCTURE_INTERACTION: case TEMPLATE_SOLVER: case MULTIPHYSICS:
       SU2_MPI::Error("No iteration found for specified solver.", CURRENT_FUNCTION);
+      break;
+    case PARTICLE_TRACKING:
+      if (rank == MASTER_NODE)
+        cout << "Particle tracking iteration." << endl;
+      iteration = new CPTIteration(config);
       break;
   }
 

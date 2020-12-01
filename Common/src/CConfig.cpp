@@ -1860,6 +1860,12 @@ void CConfig::SetConfig_Options() {
    *  \n DESCRIPTION: Convective numerical method \n DEFAULT: UPWIND */
   addEnumOption("CONV_NUM_METHOD_HEAT", Kind_ConvNumScheme_Heat, Space_Map, SPACE_UPWIND);
 
+  /*!\brief MUSCL_FLOW \n DESCRIPTION: Check if the MUSCL scheme should be used \ingroup Config*/
+  addBoolOption("MUSCL_PT", MUSCL_PT, false);
+  /*!\brief CONV_NUM_METHOD_PT
+   *  \n DESCRIPTION: Convective numerical method \n DEFAULT: UPWIND */
+  addEnumOption("CONV_NUM_METHOD_PT", Kind_ConvNumScheme_PT, Space_Map, SPACE_UPWIND);
+
   /*!\par CONFIG_CATEGORY: Adjoint and Gradient \ingroup Config*/
   /*--- Options related to the adjoint and gradient ---*/
 
@@ -4954,7 +4960,7 @@ void CConfig::SetPostprocessing(unsigned short val_software, unsigned short val_
    gradients for uwpind reconstruction. Set additional booleans to
    minimize overhead as appropriate. */
 
-  if (MUSCL_Flow || MUSCL_Turb || MUSCL_Heat || MUSCL_AdjFlow) {
+  if (MUSCL_Flow || MUSCL_Turb || MUSCL_Heat || MUSCL_AdjFlow || MUSCL_PT) {
 
     ReconstructionGradientRequired = true;
 
@@ -8060,6 +8066,7 @@ unsigned short CConfig::GetContainerPosition(unsigned short val_eqsystem) {
     case RUNTIME_TURB_SYS:      return TURB_SOL;
     case RUNTIME_TRANS_SYS:     return TRANS_SOL;
     case RUNTIME_HEAT_SYS:      return HEAT_SOL;
+    case RUNTIME_PT_SYS:        return PT_SOL;
     case RUNTIME_FEA_SYS:       return FEA_SOL;
     case RUNTIME_ADJPOT_SYS:    return ADJFLOW_SOL;
     case RUNTIME_ADJFLOW_SYS:   return ADJFLOW_SOL;
@@ -8222,6 +8229,13 @@ void CConfig::SetGlobalParam(unsigned short val_solver,
       if (val_system == RUNTIME_HEAT_SYS) {
         SetKind_ConvNumScheme(NONE, NONE, NONE, NONE, NONE, NONE);
         SetKind_TimeIntScheme(Kind_TimeIntScheme_Heat);
+      }
+      break;
+
+    case PARTICLE_TRACKING:
+      if (val_system == RUNTIME_PT_SYS) {
+        SetKind_ConvNumScheme(Kind_ConvNumScheme_PT, NONE, NONE, NONE, NONE, NONE);
+        SetKind_TimeIntScheme(Kind_TimeIntScheme_PT);
       }
       break;
 

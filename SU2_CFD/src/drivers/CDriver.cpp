@@ -55,6 +55,7 @@
 #include "../../include/numerics/transition.hpp"
 #include "../../include/numerics/radiation.hpp"
 #include "../../include/numerics/heat.hpp"
+#include "../../include/numerics/particleTracking.hpp"
 #include "../../include/numerics/flow/convection/roe.hpp"
 #include "../../include/numerics/flow/convection/fds.hpp"
 #include "../../include/numerics/flow/convection/fvs.hpp"
@@ -1073,6 +1074,7 @@ void CDriver::Inlet_Preprocessing(CSolver ***solver, CGeometry **geometry,
   bool euler, ns, turbulent,
   adj_euler, adj_ns, adj_turb,
   heat,
+  pt,
   fem,
   template_solver, disc_adj, disc_adj_fem, disc_adj_turb;
   int val_iter = 0;
@@ -1085,6 +1087,7 @@ void CDriver::Inlet_Preprocessing(CSolver ***solver, CGeometry **geometry,
   disc_adj         = false;
   fem              = false;  disc_adj_fem     = false;
   heat             = false;  disc_adj_turb    = false;
+  pt               = false;
   template_solver  = false;
 
   /*--- Adjust iteration number for unsteady restarts. ---*/
@@ -1114,6 +1117,7 @@ void CDriver::Inlet_Preprocessing(CSolver ***solver, CGeometry **geometry,
     case NAVIER_STOKES: case INC_NAVIER_STOKES: ns = true; break;
     case RANS : case INC_RANS: ns = true; turbulent = true; break;
     case HEAT_EQUATION: heat = true; break;
+    case PARTICLE_TRACKING: pt = true; break;
     case FEM_ELASTICITY: fem = true; break;
     case ADJ_EULER : euler = true; adj_euler = true; break;
     case ADJ_NAVIER_STOKES : ns = true; turbulent = (config->GetKind_Turb_Model() != NONE); adj_ns = true; break;
@@ -1152,6 +1156,9 @@ void CDriver::Inlet_Preprocessing(CSolver ***solver, CGeometry **geometry,
       no_profile = true;
     }
     if (heat) {
+      no_profile = true;
+    }
+    if (pt) {
       no_profile = true;
     }
     if (fem) {
@@ -1198,7 +1205,7 @@ void CDriver::Solver_Restart(CSolver ***solver, CGeometry **geometry,
   bool euler, ns, turbulent,
   NEMO_euler, NEMO_ns, 
   adj_euler, adj_ns, adj_turb,
-  heat, fem, fem_euler, fem_ns, fem_dg_flow,
+  heat, fem, fem_euler, fem_ns, fem_dg_flow, pt,
   template_solver, disc_adj, disc_adj_fem, disc_adj_turb, disc_adj_heat;
   int val_iter = 0;
 
@@ -1208,7 +1215,7 @@ void CDriver::Solver_Restart(CSolver ***solver, CGeometry **geometry,
   NEMO_euler       = false;  NEMO_ns      = false;
   adj_euler        = false;  adj_ns       = false;  adj_turb    = false;
   fem_euler        = false;  fem_ns       = false;  fem_dg_flow = false;
-  disc_adj         = false;
+  disc_adj         = false;  pt           = false;
   fem              = false;  disc_adj_fem     = false;
   disc_adj_turb    = false;
   heat             = false;  disc_adj_heat    = false;
@@ -1254,6 +1261,7 @@ void CDriver::Solver_Restart(CSolver ***solver, CGeometry **geometry,
     case FEM_RANS : fem_ns = true; break;
     case FEM_LES : fem_ns = true; break;
     case HEAT_EQUATION: heat = true; break;
+    case PARTICLE_TRACKING: pt = true; break;
     case FEM_ELASTICITY: fem = true; break;
     case ADJ_EULER : euler = true; adj_euler = true; break;
     case ADJ_NAVIER_STOKES : ns = true; turbulent = (config->GetKind_Turb_Model() != NONE); adj_ns = true; break;
@@ -1303,6 +1311,9 @@ void CDriver::Solver_Restart(CSolver ***solver, CGeometry **geometry,
     }
     if (heat) {
       solver[MESH_0][HEAT_SOL]->LoadRestart(geometry, solver, config, val_iter, update_geo);
+    }
+    if (pt) {
+      solver[MESH_0][PT_SOL]->LoadRestart(geometry, solver, config, val_iter, update_geo);
     }
   }
 
@@ -1409,7 +1420,8 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
   nVar_Adj_Turb         = 0,
   nVar_FEM              = 0,
   nVar_Rad              = 0,
-  nVar_Heat             = 0;
+  nVar_Heat             = 0,
+  nVar_PT               = 0;
 
   numerics = new CNumerics***[config->GetnMGLevels()+1];
 
@@ -1424,11 +1436,11 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
   /*--- Initialize some useful booleans ---*/
   bool euler, ns, NEMO_euler, NEMO_ns, turbulent, adj_euler, adj_ns, adj_turb, fem_euler, fem_ns, fem_turbulent;
   bool spalart_allmaras, neg_spalart_allmaras, e_spalart_allmaras, comp_spalart_allmaras, e_comp_spalart_allmaras, menter_sst;
-  bool fem, heat, transition, template_solver;
+  bool fem, heat, transition, template_solver, pt;
 
   euler = ns = NEMO_euler = NEMO_ns = turbulent = adj_euler = adj_ns = adj_turb = fem_euler = fem_ns = fem_turbulent = false;
   spalart_allmaras = neg_spalart_allmaras = e_spalart_allmaras = comp_spalart_allmaras = e_comp_spalart_allmaras = menter_sst = false;
-  fem = heat = transition = template_solver = false;
+  fem = heat = transition = template_solver = pt = false;
 
   /*--- Assign booleans ---*/
   switch (config->GetKind_Solver()) {
@@ -1503,6 +1515,9 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
       adj_ns = ns = compressible = turbulent = true;
       adj_turb = !config->GetFrozen_Visc_Cont(); break;
 
+    case PARTICLE_TRACKING:
+      pt = true; break;
+
   }
 
   /*--- Assign turbulence model booleans ---*/
@@ -1548,7 +1563,9 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
   //if (fem_turbulent)    nVar_Turb = solver_container[MESH_0][FEM_TURB_SOL]->GetnVar();
 
   if (fem)          nVar_FEM = solver[MESH_0][FEA_SOL]->GetnVar();
-  if (heat)     nVar_Heat = solver[MESH_0][HEAT_SOL]->GetnVar();
+  if (heat)         nVar_Heat = solver[MESH_0][HEAT_SOL]->GetnVar();
+
+  if (pt)           nVar_PT = solver[MESH_0][PT_SOL]->GetnVar();
 
   if (config->AddRadiation())    nVar_Rad = solver[MESH_0][RAD_SOL]->GetnVar();
 
@@ -2175,6 +2192,40 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
       }
     }
   }
+
+    /*--- Solver definition of the finite volume particle tracking solver  ---*/
+    if (pt) {
+
+      /*--- Definition of the viscous scheme for each equation and mesh level ---*/
+      for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++) {
+
+//        numerics[iMGlevel][PT_SOL][visc_term] = new CAvgGradCorrected_Heat(nDim, nVar_Heat, config);
+//        numerics[iMGlevel][PT_SOL][visc_bound_term] = new CAvgGrad_Heat(nDim, nVar_Heat, config);
+
+        switch (config->GetKind_ConvNumScheme_Heat()) {
+
+          case SPACE_UPWIND :
+            numerics[iMGlevel][PT_SOL][conv_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
+            numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
+            break;
+
+          case SPACE_CENTERED :
+//            numerics[iMGlevel][PT_SOL][conv_term] = new CCentSca_Heat(nDim, nVar_Heat, config);
+//            numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwSca_Heat(nDim, nVar_Heat, config);
+//            break;
+
+          default:
+            SU2_OMP_MASTER
+            SU2_MPI::Error("Invalid convective scheme for the heat transfer equations.", CURRENT_FUNCTION);
+            break;
+        }
+
+//        numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag_PT(nDim, nVar_Trans, config);
+//        numerics[iMGlevel][PT_SOL][source_second_term] = new CSourceNothing(nDim, nVar_Trans, config);
+
+
+      }
+    }
 
   /*--- Solver definition for the radiation model problem ---*/
 
@@ -3149,6 +3200,8 @@ bool CFluidDriver::Monitor(unsigned long ExtIter) {
       StopCalc = integration_container[ZONE_0][INST_0][FLOW_SOL]->GetConvergence(); break;
     case HEAT_EQUATION:
       StopCalc = integration_container[ZONE_0][INST_0][HEAT_SOL]->GetConvergence(); break;
+    case PARTICLE_TRACKING:
+      StopCalc = integration_container[ZONE_0][INST_0][PT_SOL]->GetConvergence(); break;
     case FEM_ELASTICITY:
       StopCalc = integration_container[ZONE_0][INST_0][FEA_SOL]->GetConvergence(); break;
     case ADJ_EULER: case ADJ_NAVIER_STOKES: case ADJ_RANS:
