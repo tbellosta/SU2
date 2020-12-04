@@ -130,6 +130,10 @@ void CSinglezoneDriver::Preprocess(unsigned long TimeIter) {
                                                                             solver_container[ZONE_0][INST_0],
                                                                             config_container[ZONE_0], TimeIter);
   }
+  if (config_container[ZONE_0]->GetKind_Solver() == PARTICLE_TRACKING)
+    solver_container[ZONE_0][INST_0][MESH_0][PT_SOL]->SetInitialCondition(geometry_container[ZONE_0][INST_0],
+                                                                            solver_container[ZONE_0][INST_0],
+                                                                            config_container[ZONE_0], TimeIter);
 
 #ifdef HAVE_MPI
   SU2_MPI::Barrier(MPI_COMM_WORLD);

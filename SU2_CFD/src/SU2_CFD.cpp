@@ -33,11 +33,13 @@
 #endif
 
 /* Include file, needed for the runtime NaN catching. */
-//#include <fenv.h>
+#include <cfenv>
 
 using namespace std;
 
 int main(int argc, char *argv[]) {
+
+  feenableexcept(FE_DIVBYZERO || FE_INVALID || FE_OVERFLOW || FE_UNDERFLOW);
 
   char config_file_name[MAX_STRING_SIZE];
   bool dry_run = false;

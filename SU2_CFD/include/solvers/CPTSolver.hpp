@@ -229,6 +229,8 @@ class CPTSolver final : public CSolver {
                  CConfig *config,
                  unsigned short val_marker) override;
 
+  void BC_Periodic(CGeometry *geometry, CSolver **solver_container, CNumerics *numerics, CConfig *config) override;
+
 
   /*!
    * \brief Update the solution using an implicit solver.

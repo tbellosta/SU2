@@ -94,4 +94,17 @@ class CPTVariable final : public CVariable {
    */
   inline CVectorOfMatrix& GetGradient_Reconstruction(void) final { return Gradient_Reconstruction; }
 
+  /*!
+   * \brief Get the projected velocity in a unitary vector direction (compressible solver).
+   * \param[in] val_vector - Direction of projection.
+   * \return Value of the projected velocity.
+   */
+  inline su2double GetProjVel(unsigned long iPoint, const su2double *val_vector) const final {
+    su2double ProjVel = 0.0;
+    for (unsigned long iDim = 0; iDim < nDim; iDim++)
+      ProjVel += Solution(iPoint,iDim+1)*val_vector[iDim]/Solution(iPoint,0);
+    return ProjVel;
+  }
+
+
 };

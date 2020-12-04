@@ -29,13 +29,14 @@
 
 CConv_PT::CConv_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig* config) : CNumerics(val_nDim, val_nVar, config) {
 
-  implicit = (config->GetKind_TimeIntScheme_Turb() == EULER_IMPLICIT);
+  implicit = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
   /** A grid is defined as dynamic if there's rigid grid movement or
    *  grid deformation AND the problem is time domain **/
   dynamic_grid = config->GetDynamic_Grid();
 
   Velocity_i = new su2double [nDim];
   Velocity_j = new su2double [nDim];
+
 
   Proj_Flux_i = new su2double [nVar];
   Proj_Flux_j = new su2double [nVar];
@@ -44,8 +45,8 @@ CConv_PT::CConv_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig* co
     Proj_Jac_i = new su2double*[nVar];
     Proj_Jac_j = new su2double*[nVar];
     for (int jVar = 0; jVar < nVar; ++jVar) {
-      Proj_Jac_i[iVar] = new su2double[nVar];
-      Proj_Jac_j[iVar] = new su2double[nVar];
+      Proj_Jac_i[jVar] = new su2double[nVar];
+      Proj_Jac_j[jVar] = new su2double[nVar];
     }
   }
 
@@ -90,9 +91,10 @@ void CConv_PT::GetProjFluxPT(const su2double* VolFraction, const su2double* Vel,
     su2double aw = (*VolFraction) * Vel[2];
 
     ProjFlux[3] = au * Vel[2] * Norm[0];
+
     ProjFlux[3] += av * Vel[2] * Norm[1];
 
-    ProjFlux[0] += aw * Norm[1];
+    ProjFlux[0] += aw * Norm[2];
     ProjFlux[1] += aw * Vel[0] * Norm[2];
     ProjFlux[2] += aw * Vel[1] * Norm[2];
     ProjFlux[3] += aw * Vel[2] * Norm[2];
@@ -143,7 +145,7 @@ void CConv_PT::GetProjFluxJacobianPT(const su2double* VolFraction, const su2doub
 
 
 CUpwRusanov_PT::CUpwRusanov_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) :
-    CConv_PT(val_nDim, val_nVar, config) {}
+    CConv_PT(val_nDim, val_nVar, config) { }
 
 
 void CUpwRusanov_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i,
@@ -154,9 +156,12 @@ void CUpwRusanov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
   su2double projVel_j = 0;
   su2double lambda;
 
+  Density_i = U_i[0];
+  Density_j = U_j[0];
+
   for (iDim = 0; iDim < nDim; iDim++) {
-    Velocity_i[iDim] = V_i[iDim+1];
-    Velocity_j[iDim] = V_j[iDim+1];
+    Velocity_i[iDim] = U_i[iDim+1]/U_i[0];
+    Velocity_j[iDim] = U_j[iDim+1]/U_i[0];
     projVel_i += Velocity_i[iDim]*Normal[iDim];
     projVel_j += Velocity_j[iDim]*Normal[iDim];
   }

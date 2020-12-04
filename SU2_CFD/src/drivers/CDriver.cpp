@@ -2202,7 +2202,7 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
 //        numerics[iMGlevel][PT_SOL][visc_term] = new CAvgGradCorrected_Heat(nDim, nVar_Heat, config);
 //        numerics[iMGlevel][PT_SOL][visc_bound_term] = new CAvgGrad_Heat(nDim, nVar_Heat, config);
 
-        switch (config->GetKind_ConvNumScheme_Heat()) {
+        switch (config->GetKind_ConvNumScheme_PT()) {
 
           case SPACE_UPWIND :
             numerics[iMGlevel][PT_SOL][conv_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
@@ -2220,8 +2220,8 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
             break;
         }
 
-//        numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag_PT(nDim, nVar_Trans, config);
-//        numerics[iMGlevel][PT_SOL][source_second_term] = new CSourceNothing(nDim, nVar_Trans, config);
+        numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceNothing(nDim, nVar_Trans, config);
+        numerics[iMGlevel][PT_SOL][source_second_term] = new CSourceNothing(nDim, nVar_Trans, config);
 
 
       }

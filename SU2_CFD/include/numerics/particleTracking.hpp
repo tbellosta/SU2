@@ -35,7 +35,6 @@ class CConv_PT : public CNumerics {
   su2double *Velocity_i, *Velocity_j, *Proj_Flux_i, *Proj_Flux_j,
       **Proj_Jac_i, **Proj_Jac_j;
   bool implicit, dynamic_grid;
-//  su2double q_ij, a0, a1;
   unsigned short iDim;
 
  public:

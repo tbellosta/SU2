@@ -76,7 +76,7 @@ CPTOutput::CPTOutput(CConfig *config, unsigned short nDim) : COutput(config, nDi
 
 }
 
-CPTOutput::~CPTOutput(void) {}
+CPTOutput::~CPTOutput(void) = default;
 
 void CPTOutput::LoadHistoryData(CConfig *config, CGeometry *geometry, CSolver **solver) {
 
@@ -129,13 +129,19 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
     AddVolumeOutput("COORD-Z", "z", "COORDINATES","z-component of the coordinate vector");
 
   // SOLUTION
-  AddVolumeOutput("TEMPERATURE", "Temperature", "SOLUTION", "Temperature");
+  AddVolumeOutput("DENSITY", "alpha", "SOLUTION", "Volume fraction");
+  AddVolumeOutput("MOMENTUM-X", "alphaU", "SOLUTION", "Momentum-X");
+  AddVolumeOutput("MOMENTUM-Y", "alphaV", "SOLUTION", "Momentum-Y");
+  if (nDim == 3) AddVolumeOutput("MOMENTUM-Z", "alphaW", "SOLUTION", "Momentum-Z");
 
-  // Primitives
-  AddVolumeOutput("HEAT_FLUX", "Heat_Flux", "PRIMITIVE", "Heatflux");
+//  // Primitives
+//  AddVolumeOutput("HEAT_FLUX", "Heat_Flux", "PRIMITIVE", "Heatflux");
 
   // Residuals
-  AddVolumeOutput("RES_TEMPERATURE", "Residual_Temperature", "RESIDUAL", "Residual of the temperature");
+  AddVolumeOutput("RES_DENSITY", "Residual_alpha", "RESIDUAL", "Residual of the volume fraction");
+  AddVolumeOutput("RES_MOMENTUM-X", "Residual_alphaU", "RESIDUAL", "Residual of the MOMENTUM-X");
+  AddVolumeOutput("RES_MOMENTUM-Y", "Residual_alphaV", "RESIDUAL", "Residual of the MOMENTUM-Y");
+  if (nDim == 3) AddVolumeOutput("RES_MOMENTUM-Z", "Residual_alphaW", "RESIDUAL", "Residual of the MOMENTUM-Z");
 
   // Mesh quality metrics, computed in CPhysicalGeometry::ComputeMeshQualityStatistics.
   AddVolumeOutput("ORTHOGONALITY", "Orthogonality", "MESH_QUALITY", "Orthogonality Angle (deg.)");
@@ -147,7 +153,7 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
 
 void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint){
 
-  CVariable* Node_Heat = solver[HEAT_SOL]->GetNodes();
+  CVariable* Node_PT = solver[PT_SOL]->GetNodes();
   CPoint*    Node_Geo  = geometry->nodes;
 
   // Grid coordinates
@@ -157,16 +163,16 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
     SetVolumeOutputValue("COORD-Z", iPoint, Node_Geo->GetCoord(iPoint, 2));
 
   // SOLUTION
-  SetVolumeOutputValue("DENSITY", iPoint, Node_Heat->GetSolution(iPoint, 0));
-  SetVolumeOutputValue("MOMENTUM_X", iPoint, Node_Heat->GetSolution(iPoint, 1));
-  SetVolumeOutputValue("MOMENTUM_Y", iPoint, Node_Heat->GetSolution(iPoint, 2));
-  if (nDim == 3) SetVolumeOutputValue("MOMENTUM_Z", iPoint, Node_Heat->GetSolution(iPoint, 3));
+  SetVolumeOutputValue("DENSITY", iPoint, Node_PT->GetSolution(iPoint, 0));
+  SetVolumeOutputValue("MOMENTUM-X", iPoint, Node_PT->GetSolution(iPoint, 1));
+  SetVolumeOutputValue("MOMENTUM-Y", iPoint, Node_PT->GetSolution(iPoint, 2));
+  if (nDim == 3) SetVolumeOutputValue("MOMENTUM-Z", iPoint, Node_PT->GetSolution(iPoint, 3));
 
   // Residuals
   SetVolumeOutputValue("RES_DENSITY", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 0));
-  SetVolumeOutputValue("RES_MOMENTUM_X", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 1));
-  SetVolumeOutputValue("RES_MOMENTUM_Y", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 2));
-  if (nDim == 3) SetVolumeOutputValue("RES_MOMENTUM_Z", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 3));
+  SetVolumeOutputValue("RES_MOMENTUM-X", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 1));
+  SetVolumeOutputValue("RES_MOMENTUM-Y", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 2));
+  if (nDim == 3) SetVolumeOutputValue("RES_MOMENTUM-Z", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 3));
 
   // Mesh quality metrics
   if (config->GetWrt_MeshQuality()) {

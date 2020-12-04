@@ -1677,6 +1677,8 @@ void CConfig::SetConfig_Options() {
   addEnumOption("TIME_DISCRE_HEAT", Kind_TimeIntScheme_Heat, Time_Int_Map, EULER_IMPLICIT);
   /* DESCRIPTION: Time discretization */
   addEnumOption("TIMESTEP_HEAT", Kind_TimeStep_Heat, Heat_TimeStep_Map, MINIMUM);
+  /* DESCRIPTION: Time discretization */
+  addEnumOption("TIME_DISCRE_PT", Kind_TimeIntScheme_PT, Time_Int_Map, EULER_IMPLICIT);
 
   /*!\par CONFIG_CATEGORY: Linear solver definition \ingroup Config*/
   /*--- Options related to the linear solvers ---*/
@@ -8234,7 +8236,7 @@ void CConfig::SetGlobalParam(unsigned short val_solver,
 
     case PARTICLE_TRACKING:
       if (val_system == RUNTIME_PT_SYS) {
-        SetKind_ConvNumScheme(Kind_ConvNumScheme_PT, NONE, NONE, NONE, NONE, NONE);
+        SetKind_ConvNumScheme(Kind_ConvNumScheme_PT, NONE, NONE, NONE, MUSCL_PT, NONE);
         SetKind_TimeIntScheme(Kind_TimeIntScheme_PT);
       }
       break;
