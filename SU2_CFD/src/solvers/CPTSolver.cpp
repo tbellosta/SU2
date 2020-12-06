@@ -929,11 +929,11 @@ void CPTSolver::BC_Outlet(CGeometry *geometry, CSolver **solver_container,
 void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CConfig *config,
                                unsigned short iMesh, unsigned long Iteration) {
 
-  const bool implicit      = (config->GetKind_TimeIntScheme() == EULER_IMPLICIT);
+  const bool implicit      = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
   const bool time_stepping = (config->GetTime_Marching() == TIME_STEPPING);
   const bool dual_time     = (config->GetTime_Marching() == DT_STEPPING_1ST) ||
                              (config->GetTime_Marching() == DT_STEPPING_2ND);
-  const su2double K_v = 0.25;
+
   su2double Global_Delta_UnstTimeND = 0.0;
 
   /*--- Init thread-shared variables to compute min/max values.
@@ -962,8 +962,7 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
 
     /*--- Loop over the neighbors of point i. ---*/
 
-    for (unsigned short iNeigh = 0; iNeigh < geometry->nodes->GetnPoint(iPoint); ++iNeigh)
-    {
+    for (unsigned short iNeigh = 0; iNeigh < geometry->nodes->GetnPoint(iPoint); ++iNeigh) {
       jPoint = geometry->nodes->GetPoint(iPoint,iNeigh);
 
       iEdge = geometry->nodes->GetEdge(iPoint,iNeigh);
@@ -1137,7 +1136,7 @@ void CPTSolver::ExplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
   /*--- Update the solution ---*/
 
   for (iPoint = 0; iPoint < nPointDomain; iPoint++) {
-    Vol = geometry->nodes->GetVolume(iPoint);
+    Vol = geometry->nodes->GetVolume(iPoint) + geometry->nodes->GetPeriodicVolume(iPoint);;
     Delta = nodes->GetDelta_Time(iPoint) / Vol;
 
     local_Res_TruncError = nodes->GetResTruncError(iPoint);
@@ -1180,7 +1179,7 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
   /*--- Set maximum residual to zero ---*/
 
   for (iVar = 0; iVar < nVar; iVar++) {
-    SetRes_RMS(iVar, 1.0);
+    SetRes_RMS(iVar, 0.0);
     SetRes_Max(iVar, 0.0, 0);
   }
 
@@ -1194,7 +1193,7 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
 
     /*--- Read the volume ---*/
 
-    Vol = geometry->nodes->GetVolume(iPoint);
+    Vol = geometry->nodes->GetVolume(iPoint) + geometry->nodes->GetPeriodicVolume(iPoint);
 
     /*--- Modify matrix diagonal to assure diagonal dominance ---*/
 
@@ -1226,11 +1225,8 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
   /*--- Initialize residual and solution at the ghost points ---*/
 
   for (iPoint = nPointDomain; iPoint < nPoint; iPoint++) {
-    for (iVar = 0; iVar < nVar; iVar++) {
-      total_index = iPoint*nVar + iVar;
-      LinSysRes[total_index] = 0.0;
-      LinSysSol[total_index] = 0.0;
-    }
+    LinSysRes.SetBlock_Zero(iPoint);
+    LinSysSol.SetBlock_Zero(iPoint);
   }
 
   /*--- Solve or smooth the linear system ---*/
@@ -1300,8 +1296,9 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
   if (TimeIter == 0) {
     /*--- Shock tube problem ---*/
     su2double* Coord;
-    su2double wr[4] = {0.003, 2 * 0.003, 0, 0};
-    su2double wl[4] = {0.003, 0.5 * 0.003, 0, 0};
+    su2double wr[4] = {0.003, 1.5 * 0.003, 0, 0};
+    su2double wl[4] = {0.008, 0.5 * 0.008, 0, 0};
+    su2double w0[4] = {0.003, 0, 0, 0};
 
     for (iMesh = 0; iMesh <= config->GetnMGLevels(); ++iMesh) {
       for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); ++iPoint) {
@@ -1312,6 +1309,10 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
         } else {
           solver_container[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint, wr);
         }
+
+//        if (Coord[0] < 0.2 || Coord[0] > 0.8)
+//          solver_container[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint, w0);
+
       }
       solver_container[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
       solver_container[iMesh][PT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
@@ -1357,7 +1358,7 @@ void CPTSolver::SetResidual_DualTime(CGeometry *geometry, CSolver **solver_conta
   su2double *U_time_n, *U_time_nP1, *U_time_nM1;
   su2double Volume_nP1, TimeStep;
 
-  bool implicit       = (config->GetKind_TimeIntScheme_Flow() == EULER_IMPLICIT);
+  bool implicit       = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
 
   /*--- Store the physical time step ---*/
 
@@ -1426,6 +1427,65 @@ void CPTSolver::BC_Periodic(CGeometry *geometry, CSolver **solver_container,
   for (unsigned short iPeriodic = 1; iPeriodic <= config->GetnMarker_Periodic()/2; iPeriodic++) {
     InitiatePeriodicComms(geometry, config, iPeriodic, PERIODIC_RESIDUAL);
     CompletePeriodicComms(geometry, config, iPeriodic, PERIODIC_RESIDUAL);
+  }
+
+}
+void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
+                             CNumerics* visc_numerics, CConfig* config, unsigned short val_marker) {
+
+  unsigned short iDim;
+  unsigned long iVertex, iPoint, Point_Normal;
+  su2double *V_boundary, *V_domain;
+
+  bool implicit             = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
+
+//  su2double *Normal = new su2double[nDim];
+  su2double Normal[3];
+
+  for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
+
+    iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
+
+    if (geometry->nodes->GetDomain(iPoint)) {
+
+      Point_Normal = geometry->vertex[val_marker][iVertex]->GetNormal_Neighbor();
+
+      /*--- Normal vector for this vertex (negate for outward convention) ---*/
+
+      geometry->vertex[val_marker][iVertex]->GetNormal(Normal);
+      for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
+
+      conv_numerics->SetNormal(Normal);
+
+      /*--- Retrieve solution at this boundary node ---*/
+
+//      V_domain = solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(iPoint);
+//
+//      /*--- Retrieve the specified velocity for the inlet. ---*/
+//
+//      V_boundary = solver_container[FLOW_SOL]->GetCharacPrimVar(val_marker, iVertex);
+//      for (iDim = 0; iDim < nDim; iDim++)
+//        V_boundary[iDim+1] = solver_container[FLOW_SOL]->GetNodes()->GetVelocity(Point_Normal, iDim);
+//
+
+      if (dynamic_grid)
+        conv_numerics->SetGridVel(geometry->nodes->GetGridVel(iPoint), geometry->nodes->GetGridVel(iPoint));
+
+      conv_numerics->SetConservative(nodes->GetSolution(iPoint), nodes->GetSolution(Point_Normal));
+
+      /*--- Compute the residual using an upwind scheme ---*/
+
+      conv_numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
+
+      /*--- Update residual value ---*/
+
+      LinSysRes.AddBlock(iPoint, Residual);
+
+      /*--- Jacobian contribution for implicit integration ---*/
+
+      if (implicit)
+        Jacobian.AddBlock2Diag(iPoint, Jacobian_i);
+    }
   }
 
 }

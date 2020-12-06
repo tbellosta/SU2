@@ -294,5 +294,12 @@ class CPTSolver final : public CSolver {
                             unsigned short iMesh,
                             unsigned short RunTime_EqSystem) override;
 
+  void BC_Far_Field(CGeometry *geometry,
+                    CSolver **solver_container,
+                    CNumerics *conv_numerics,
+                    CNumerics *visc_numerics,
+                    CConfig *config,
+                    unsigned short val_marker) final;
+
 
 };

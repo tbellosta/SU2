@@ -41,13 +41,11 @@ CConv_PT::CConv_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig* co
   Proj_Flux_i = new su2double [nVar];
   Proj_Flux_j = new su2double [nVar];
 
-  for (int iVar = 0; iVar < nVar; ++iVar) {
-    Proj_Jac_i = new su2double*[nVar];
-    Proj_Jac_j = new su2double*[nVar];
-    for (int jVar = 0; jVar < nVar; ++jVar) {
-      Proj_Jac_i[jVar] = new su2double[nVar];
-      Proj_Jac_j[jVar] = new su2double[nVar];
-    }
+  Proj_Jac_i = new su2double*[nVar];
+  Proj_Jac_j = new su2double*[nVar];
+  for (int jVar = 0; jVar < nVar; ++jVar) {
+    Proj_Jac_i[jVar] = new su2double[nVar];
+    Proj_Jac_j[jVar] = new su2double[nVar];
   }
 
   Laminar_Viscosity_i = config->GetViscosity_FreeStreamND();
@@ -161,7 +159,7 @@ void CUpwRusanov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
 
   for (iDim = 0; iDim < nDim; iDim++) {
     Velocity_i[iDim] = U_i[iDim+1]/U_i[0];
-    Velocity_j[iDim] = U_j[iDim+1]/U_i[0];
+    Velocity_j[iDim] = U_j[iDim+1]/U_j[0];
     projVel_i += Velocity_i[iDim]*Normal[iDim];
     projVel_j += Velocity_j[iDim]*Normal[iDim];
   }
