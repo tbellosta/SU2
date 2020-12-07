@@ -1296,8 +1296,8 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
   if (TimeIter == 0) {
     /*--- Shock tube problem ---*/
     su2double* Coord;
-    su2double wr[4] = {0.003, 1.5 * 0.003, 0, 0};
-    su2double wl[4] = {0.008, 0.5 * 0.008, 0, 0};
+    su2double wr[4] = {0.003, 0.5 * 0.003, 0, 0};
+    su2double wl[4] = {0.008, 1.5 * 0.008, 0, 0};
     su2double w0[4] = {0.003, 0, 0, 0};
 
     for (iMesh = 0; iMesh <= config->GetnMGLevels(); ++iMesh) {
@@ -1486,6 +1486,32 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
       if (implicit)
         Jacobian.AddBlock2Diag(iPoint, Jacobian_i);
     }
+  }
+
+}
+void CPTSolver::Source_Residual(CGeometry* geometry, CSolver** solver_container, CNumerics** numerics_container,
+                                CConfig* config, unsigned short iMesh) {
+
+  /*--- Pick one numerics object per thread. ---*/
+  CNumerics* numerics = numerics_container[SOURCE_FIRST_TERM];
+
+  /*--- Loop over all points. ---*/
+  for (unsigned long iPoint = 0; iPoint < nPointDomain; iPoint++) {
+    numerics->SetConservative(nodes->GetSolution(iPoint), nullptr);
+
+    /*--- Set volume ---*/
+
+    numerics->SetVolume(geometry->nodes->GetVolume(iPoint));
+
+    /*--- Compute the source term ---*/
+
+    numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
+
+    /*--- Subtract residual and the Jacobian ---*/
+
+    LinSysRes.SubtractBlock(iPoint, Residual);
+
+//    Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
   }
 
 }

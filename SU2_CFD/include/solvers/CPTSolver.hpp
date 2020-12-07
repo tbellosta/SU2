@@ -165,6 +165,12 @@ class CPTSolver final : public CSolver {
                         unsigned short iMesh,
                         unsigned short iRKStep) override;
 
+  void Source_Residual(CGeometry *geometry,
+                       CSolver **solver_container,
+                       CNumerics **numerics_container,
+                       CConfig *config,
+                       unsigned short iMesh) override;
+
 
   /*!
    * \brief Impose the Navier-Stokes boundary condition (strong).

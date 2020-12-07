@@ -1680,6 +1680,8 @@ void CConfig::SetConfig_Options() {
   /* DESCRIPTION: Time discretization */
   addEnumOption("TIME_DISCRE_PT", Kind_TimeIntScheme_PT, Time_Int_Map, EULER_IMPLICIT);
 
+  addDoubleOption("PARTICLE_SIZE", particleSize, 20e-6);
+
   /*!\par CONFIG_CATEGORY: Linear solver definition \ingroup Config*/
   /*--- Options related to the linear solvers ---*/
 

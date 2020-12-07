@@ -2220,8 +2220,8 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
             break;
         }
 
-        numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceNothing(nDim, nVar_Trans, config);
-        numerics[iMGlevel][PT_SOL][source_second_term] = new CSourceNothing(nDim, nVar_Trans, config);
+        numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag(nDim, nVar_PT, config);
+        numerics[iMGlevel][PT_SOL][source_second_term] = new CSourceNothing(nDim, nVar_PT, config);
 
 
       }

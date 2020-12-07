@@ -1172,6 +1172,8 @@ private:
   string GasModel,                          /*!< \brief Gas Model. */
   *Wall_Catalytic;                          /*!< \brief Pointer to catalytic walls. */
 
+  su2double particleSize;
+
   /*!
    * \brief Set the default values of config options not set in the config file using another config object.
    * \param config - Config object to use the default values from.
@@ -1571,6 +1573,8 @@ public:
    * \return Value of CFL adapation
    */
   su2double GetHTP_Axis(unsigned short val_index) const { return HTP_Axis[val_index]; }
+
+  su2double GetParticle_Size(void) const { return particleSize; }
 
   /*!
    * \brief Get the value of the limits for the sections.
