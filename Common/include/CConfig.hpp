@@ -630,6 +630,7 @@ private:
   su2double Reynolds;         /*!< \brief Reynolds number. */
   su2double Froude;           /*!< \brief Froude number. */
   su2double Length_Reynolds;  /*!< \brief Reynolds length (dimensional). */
+  su2double LWC;
   su2double AoA,              /*!< \brief Angle of attack (just external flow). */
   iH, AoS, AoA_Offset,
   AoS_Offset, AoA_Sens;       /*!< \brief Angle of sideSlip (just external flow). */
@@ -9411,5 +9412,7 @@ public:
    * \return -1 if (on this mpi rank) the zone defined by config is not part of the interface.
    */
   short FindInterfaceMarker(unsigned short iInterface) const;
+
+  su2double GetLiquidWaterContent() const {return LWC;}
 
 };

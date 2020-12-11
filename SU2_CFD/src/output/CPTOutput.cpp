@@ -148,6 +148,8 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
   AddVolumeOutput("ASPECT_RATIO",  "Aspect_Ratio",  "MESH_QUALITY", "CV Face Area Aspect Ratio");
   AddVolumeOutput("VOLUME_RATIO",  "Volume_Ratio",  "MESH_QUALITY", "CV Sub-Volume Ratio");
 
+  AddVolumeOutput("BETA", "CollEff", "SOLUTION", "Collection Efficiency");
+
 }
 
 
@@ -185,8 +187,7 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
 
 void CPTOutput::LoadSurfaceData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint, unsigned short iMarker, unsigned long iVertex){
 
-  /** @todo Here add collection efficiency output **/
-//  SetVolumeOutputValue("BETA", iPoint, solver[PT_SOL]->GetCollectionEfficiency(iMarker, iVertex));
+  SetVolumeOutputValue("BETA", iPoint, fmax(0,solver[PT_SOL]->GetCollectionEfficiency(iMarker, iVertex)));
 
 }
 

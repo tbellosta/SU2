@@ -2287,7 +2287,7 @@ void CSolver::SetResidual_RMS(CGeometry *geometry, CConfig *config) {
   }
 
   for (iVar = 0; iVar < nVar; iVar++) {
-
+//cout << rbuf_residual[iVar] << endl;
     if (rbuf_residual[iVar] != rbuf_residual[iVar]) {
       SU2_MPI::Error("SU2 has diverged. (NaN detected)", CURRENT_FUNCTION);
     }

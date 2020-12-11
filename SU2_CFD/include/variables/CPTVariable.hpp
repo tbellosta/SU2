@@ -102,9 +102,11 @@ class CPTVariable final : public CVariable {
   inline su2double GetProjVel(unsigned long iPoint, const su2double *val_vector) const final {
     su2double ProjVel = 0.0;
     for (unsigned long iDim = 0; iDim < nDim; iDim++)
-      ProjVel += Solution(iPoint,iDim+1)*val_vector[iDim]/Solution(iPoint,0);
+      ProjVel += Solution(iPoint,iDim+1)*val_vector[iDim]/(Solution(iPoint,0));
     return ProjVel;
   }
+
+  inline su2double GetVelocity(unsigned long iPoint, unsigned long iDim) const final { return Solution(iPoint,iDim+1); }
 
 
 };

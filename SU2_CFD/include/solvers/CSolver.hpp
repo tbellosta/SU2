@@ -3132,6 +3132,9 @@ public:
    */
   inline virtual su2double GetHeatFlux(unsigned short val_marker, unsigned long val_vertex) const { return 0; }
 
+
+  inline virtual su2double GetCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const { return 0; }
+
   /*!
    * \brief A virtual member.
    * \param[in] val_marker - Surface marker where the coefficient is computed.

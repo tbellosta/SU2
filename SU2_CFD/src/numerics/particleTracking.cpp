@@ -148,7 +148,7 @@ CUpwRusanov_PT::CUpwRusanov_PT(unsigned short val_nDim, unsigned short val_nVar,
 
 void CUpwRusanov_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i,
                                    su2double **val_Jacobian_j, CConfig *config) {
-
+#define SMALL 1e-50
 
   su2double projVel_i = 0;
   su2double projVel_j = 0;
@@ -158,8 +158,8 @@ void CUpwRusanov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
   Density_j = U_j[0];
 
   for (iDim = 0; iDim < nDim; iDim++) {
-    Velocity_i[iDim] = U_i[iDim+1]/U_i[0];
-    Velocity_j[iDim] = U_j[iDim+1]/U_j[0];
+    Velocity_i[iDim] = U_i[iDim+1]/(U_i[0]);
+    Velocity_j[iDim] = U_j[iDim+1]/(U_j[0]);
     projVel_i += Velocity_i[iDim]*Normal[iDim];
     projVel_j += Velocity_j[iDim]*Normal[iDim];
   }
@@ -198,24 +198,44 @@ void CUpwRusanov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
 void CSourceDrag::ComputeResidual(su2double* val_residual, su2double** val_Jacobian_i, su2double** val_Jacobian_j,
                                   CConfig* config) {
 
-//  const su2double rho = 1000;
+  const su2double rho = 1000;
 //  const su2double d = config->GetParticle_Size();
-//  const su2double mu = 18.03e-6;
-//
-//  su2double uFlow = 1, rhoFlow = 1;
-//
-//  su2double u = U_i[1]/U_i[0];
-//  su2double Re = rhoFlow*d*fabs(uFlow-u) / mu;
-//  su2double Cd = 24/Re;
-//  val_residual[0] = 0;
-//  val_residual[1] = (Volume*U_i[0])*3*mu*Re*Cd*(uFlow-u) / (4*rho*d*d);
+  const su2double d = 2e-5;
+  su2double mu = 18.03e-6;
 
+  su2double V_inf = config->GetMach() * sqrt(config->GetGamma() * config->GetGas_Constant() * config->GetTemperature_FreeStream());
 
-  const su2double mu = 4;
-  su2double uFlow = 1;
+  su2double uFlow = V_inf, rhoFlow = 1.225;
+
+  su2double u = U_i[1]/(U_i[0]);
+  su2double Re = rhoFlow*d*fabs(uFlow-u) / mu;
+  su2double Cd = 24/Re;
   val_residual[0] = 0;
-  val_residual[1] = Volume * (mu * (U_i[0] * uFlow - U_i[1]));
+  val_residual[1] = 0;
+  if (Cd < 1e10) val_residual[1] = (Volume*U_i[0])*3*mu*Re*Cd*(uFlow-u) / (4*rho*d*d);
   val_residual[2] = 0;
+
+//  cout <<  val_residual[1] << "\t";
+//
+//  mu = 4;
+//  uFlow = 1;
+//  val_residual[0] = 0;
+//  val_residual[1] = Volume * (mu * (U_i[0] * uFlow - U_i[1]));
+//  val_residual[2] = 0;
+//
+//  cout <<  Volume * (mu * (U_i[0] * uFlow - U_i[1])) << endl;
+
+  for (int iVar = 0; iVar < nVar; ++iVar) {
+    for (int jVar = 0; jVar < nVar; ++jVar) {
+      val_Jacobian_i[iVar][jVar] = 0.0;
+      val_Jacobian_j[iVar][jVar] = 0.0;
+    }
+  }
+
+  if (Cd < 1e10) {
+    val_Jacobian_i[1][0] = uFlow * Volume*3*mu*Re*Cd/(4*rho*d*d);
+    val_Jacobian_i[1][1] = Volume*3*mu*Re*Cd/(4*rho*d*d);
+  }
 
 }
 CSourceDrag::CSourceDrag(unsigned short val_nDim, unsigned short val_nVar, CConfig* config) :

@@ -29,6 +29,7 @@
 
 #include "CSolver.hpp"
 #include "../variables/CPTVariable.hpp"
+#include "../../../Common/include/toolboxes/geometry_toolbox.hpp"
 
 /*!
  * \class CPTSolver
@@ -43,7 +44,9 @@ class CPTSolver final : public CSolver {
       *AverageT_per_Marker, Total_AverageT, AllBound_AverageT,
       *Primitive, *Primitive_i, *Primitive_j,
       *Surface_Areas, Total_HeatFlux_Areas, Total_HeatFlux_Areas_Monitor;
-  su2double ***ConjugateVar, ***InterfaceVar;
+  su2double ***ConjugateVar, ***InterfaceVar, V_inf;
+
+  su2double **CollectionEfficiency;
 
   CPTVariable* nodes = nullptr;  /*!< \brief The highest level in the variable hierarchy this solver can safely use. */
 
@@ -197,12 +200,12 @@ class CPTSolver final : public CSolver {
    * \param[in] config - Definition of the particular problem.
    * \param[in] val_marker - Surface marker where the boundary condition is applied.
    */
-  void BC_HeatFlux_Wall(CGeometry *geometry,
-                        CSolver **solver_container,
-                        CNumerics *conv_numerics,
-                        CNumerics *visc_numerics,
-                        CConfig *config,
-                        unsigned short val_marker) override;
+//  void BC_HeatFlux_Wall(CGeometry *geometry,
+//                        CSolver **solver_container,
+//                        CNumerics *conv_numerics,
+//                        CNumerics *visc_numerics,
+//                        CConfig *config,
+//                        unsigned short val_marker) override;
 
   /*!
    * \brief Impose the inlet boundary condition.
@@ -306,6 +309,22 @@ class CPTSolver final : public CSolver {
                     CNumerics *visc_numerics,
                     CConfig *config,
                     unsigned short val_marker) final;
+
+  void BC_HeatFlux_Wall(CGeometry *geometry,
+                    CSolver **solver_container,
+                    CNumerics *conv_numerics,
+                    CNumerics *visc_numerics,
+                    CConfig *config,
+                    unsigned short val_marker) final;
+
+  inline su2double GetCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const final {
+    return CollectionEfficiency[val_marker][val_vertex];
+  }
+
+  void computeCollectionEfficiency(CGeometry *geometry,
+                                   CSolver **solver_container,
+                                   CConfig *config,
+                                   unsigned short iMesh);
 
 
 };

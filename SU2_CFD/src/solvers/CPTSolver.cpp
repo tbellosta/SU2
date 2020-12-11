@@ -195,15 +195,15 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
 //    }
 //  }
 
-  /*--- Heat flux in all the markers ---*/
+  /*--- Collection efficiency in all the markers ---*/
 
-//  HeatFlux = new su2double* [nMarker];
-//  for (iMarker = 0; iMarker < nMarker; iMarker++) {
-//    HeatFlux[iMarker] = new su2double [geometry->nVertex[iMarker]];
-//    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
-//      HeatFlux[iMarker][iVertex] = 0.0;
-//    }
-//  }
+  CollectionEfficiency = new su2double* [nMarker];
+  for (iMarker = 0; iMarker < nMarker; iMarker++) {
+    CollectionEfficiency[iMarker] = new su2double [geometry->nVertex[iMarker]];
+    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
+      CollectionEfficiency[iMarker][iVertex] = 0.0;
+    }
+  }
 
   if (multizone){
     /*--- Initialize the BGS residuals. ---*/
@@ -238,18 +238,20 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
   /*--- Add the solver name (max 8 characters) ---*/
 
   SolverName = "PT";
+
+  V_inf = config->GetMach() * sqrt(config->GetGamma() * config->GetGas_Constant() * config->GetTemperature_FreeStream());
 }
 
 CPTSolver::~CPTSolver(void) {
 
   unsigned short iMarker;
 
-//  if (HeatFlux != nullptr) {
-//    for (iMarker = 0; iMarker < nMarker; iMarker++) {
-//      delete [] HeatFlux[iMarker];
-//    }
-//    delete [] HeatFlux;
-//  }
+  if (CollectionEfficiency != nullptr) {
+    for (iMarker = 0; iMarker < nMarker; iMarker++) {
+      delete [] CollectionEfficiency[iMarker];
+    }
+    delete [] CollectionEfficiency;
+  }
 
   delete nodes;
 }
@@ -284,7 +286,9 @@ void CPTSolver::Preprocessing(CGeometry *geometry, CSolver **solver_container, C
 
 }
 
-void CPTSolver::Postprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh) { }
+void CPTSolver::Postprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh) {
+  computeCollectionEfficiency(geometry,solver_container,config,iMesh);
+}
 
 void CPTSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *config, int val_iter, bool val_update_geo) {
 
@@ -685,59 +689,59 @@ void CPTSolver::BC_Isothermal_Wall(CGeometry *geometry, CSolver **solver_contain
   }
 }
 
-void CPTSolver::BC_HeatFlux_Wall(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config,
-                                   unsigned short val_marker) {
-
-  unsigned short iDim;
-  unsigned long iVertex, iPoint;
-  su2double Wall_HeatFlux, Area, *Normal;
-
-  string Marker_Tag = config->GetMarker_All_TagBound(val_marker);
-  Wall_HeatFlux = config->GetWall_HeatFlux(Marker_Tag);
-
-  if(config->GetIntegrated_HeatFlux()) {
-
-    unsigned short iMarker_HeatFlux;
-    string HeatFlux_Tag, Marker_Tag;
-
-    // Find out which heat flux wall to get the right surface area
-
-    for ( iMarker_HeatFlux = 0; iMarker_HeatFlux < config->GetnMarker_HeatFlux(); iMarker_HeatFlux++ ) {
-
-      HeatFlux_Tag = config->GetMarker_HeatFlux_TagBound(iMarker_HeatFlux);
-      Marker_Tag = config->GetMarker_All_TagBound(val_marker);
-
-      if (Marker_Tag == HeatFlux_Tag) {
-        Wall_HeatFlux = Wall_HeatFlux / Surface_Areas[iMarker_HeatFlux];
-      }
-    }
-  }
-
-  Wall_HeatFlux = Wall_HeatFlux/config->GetHeat_Flux_Ref();
-
-  for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
-
-    iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
-
-    if (geometry->nodes->GetDomain(iPoint)) {
-
-      Normal = geometry->vertex[val_marker][iVertex]->GetNormal();
-      Area = 0.0;
-      for (iDim = 0; iDim < nDim; iDim++)
-        Area += Normal[iDim]*Normal[iDim];
-      Area = sqrt (Area);
-
-      Res_Visc[0] = 0.0;
-
-      Res_Visc[0] = Wall_HeatFlux * Area;
-
-      /*--- Viscous contribution to the residual at the wall ---*/
-
-      LinSysRes.SubtractBlock(iPoint, Res_Visc);
-    }
-
-  }
-}
+//void CPTSolver::BC_HeatFlux_Wall(CGeometry *geometry, CSolver **solver_container, CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config,
+//                                   unsigned short val_marker) {
+//
+//  unsigned short iDim;
+//  unsigned long iVertex, iPoint;
+//  su2double Wall_HeatFlux, Area, *Normal;
+//
+//  string Marker_Tag = config->GetMarker_All_TagBound(val_marker);
+//  Wall_HeatFlux = config->GetWall_HeatFlux(Marker_Tag);
+//
+//  if(config->GetIntegrated_HeatFlux()) {
+//
+//    unsigned short iMarker_HeatFlux;
+//    string HeatFlux_Tag, Marker_Tag;
+//
+//    // Find out which heat flux wall to get the right surface area
+//
+//    for ( iMarker_HeatFlux = 0; iMarker_HeatFlux < config->GetnMarker_HeatFlux(); iMarker_HeatFlux++ ) {
+//
+//      HeatFlux_Tag = config->GetMarker_HeatFlux_TagBound(iMarker_HeatFlux);
+//      Marker_Tag = config->GetMarker_All_TagBound(val_marker);
+//
+//      if (Marker_Tag == HeatFlux_Tag) {
+//        Wall_HeatFlux = Wall_HeatFlux / Surface_Areas[iMarker_HeatFlux];
+//      }
+//    }
+//  }
+//
+//  Wall_HeatFlux = Wall_HeatFlux/config->GetHeat_Flux_Ref();
+//
+//  for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
+//
+//    iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
+//
+//    if (geometry->nodes->GetDomain(iPoint)) {
+//
+//      Normal = geometry->vertex[val_marker][iVertex]->GetNormal();
+//      Area = 0.0;
+//      for (iDim = 0; iDim < nDim; iDim++)
+//        Area += Normal[iDim]*Normal[iDim];
+//      Area = sqrt (Area);
+//
+//      Res_Visc[0] = 0.0;
+//
+//      Res_Visc[0] = Wall_HeatFlux * Area;
+//
+//      /*--- Viscous contribution to the residual at the wall ---*/
+//
+//      LinSysRes.SubtractBlock(iPoint, Res_Visc);
+//    }
+//
+//  }
+//}
 
 void CPTSolver::BC_Inlet(CGeometry *geometry, CSolver **solver_container,
                            CNumerics *conv_numerics, CNumerics *visc_numerics, CConfig *config, unsigned short val_marker) {
@@ -1063,7 +1067,9 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
     Max_Delta_Time = rbuf_time;
   }
 
-  config->SetDelta_UnstTimeND(config->GetDelta_UnstTime());
+//  config->SetDelta_UnstTimeND(config->GetDelta_UnstTime());
+  config->SetDelta_UnstTimeND(Global_Delta_Time);
+
 
 
   /*--- For exact time solution use the minimum delta time of the whole mesh. ---*/
@@ -1296,9 +1302,13 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
   if (TimeIter == 0) {
     /*--- Shock tube problem ---*/
     su2double* Coord;
-    su2double wr[4] = {0.003, 0.5 * 0.003, 0, 0};
-    su2double wl[4] = {0.008, 1.5 * 0.008, 0, 0};
-    su2double w0[4] = {0.003, 0, 0, 0};
+//    su2double wr[4] = {0.003, 0.5 * 0.003, 0, 0};
+//    su2double wl[4] = {0.008, 1.5 * 0.008, 0, 0};
+
+    su2double LWC = config->GetLiquidWaterContent();
+    su2double wr[4] = {LWC, V_inf * LWC, 0, 0};
+    su2double wl[4] = {LWC, V_inf * LWC, 0, 0};
+
 
     for (iMesh = 0; iMesh <= config->GetnMGLevels(); ++iMesh) {
       for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); ++iPoint) {
@@ -1309,9 +1319,6 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
         } else {
           solver_container[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint, wr);
         }
-
-//        if (Coord[0] < 0.2 || Coord[0] > 0.8)
-//          solver_container[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint, w0);
 
       }
       solver_container[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
@@ -1435,12 +1442,20 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
 
   unsigned short iDim;
   unsigned long iVertex, iPoint, Point_Normal;
-  su2double *V_boundary, *V_domain;
+  su2double *V_boundary, *V_domain, V_Infty[4], Vn;
 
   bool implicit             = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
 
-//  su2double *Normal = new su2double[nDim];
   su2double Normal[3];
+
+  V_Infty[0] = config->GetLiquidWaterContent();
+  for (iDim = 0; iDim < nDim; ++iDim) {
+    V_Infty[iDim+1] = config->GetVelocity_FreeStream()[iDim] * V_Infty[0];
+  }
+
+  V_Infty[1] = V_inf * V_Infty[0];
+  V_Infty[2] = 0;
+  V_Infty[3] = 0;
 
   for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
 
@@ -1457,6 +1472,11 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
 
       conv_numerics->SetNormal(Normal);
 
+      Vn = 0;
+      for (iDim = 0; iDim < nDim; ++iDim) {
+        Vn -= nodes->GetSolution(iPoint,iDim+1)*Normal[iDim];
+      }
+
       /*--- Retrieve solution at this boundary node ---*/
 
 //      V_domain = solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(iPoint);
@@ -1471,7 +1491,12 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
       if (dynamic_grid)
         conv_numerics->SetGridVel(geometry->nodes->GetGridVel(iPoint), geometry->nodes->GetGridVel(iPoint));
 
-      conv_numerics->SetConservative(nodes->GetSolution(iPoint), nodes->GetSolution(Point_Normal));
+      if (Vn >= 0) {
+        conv_numerics->SetConservative(nodes->GetSolution(iPoint), V_Infty);
+      } else {
+        conv_numerics->SetConservative(nodes->GetSolution(iPoint), nodes->GetSolution(iPoint));
+      }
+
 
       /*--- Compute the residual using an upwind scheme ---*/
 
@@ -1514,4 +1539,154 @@ void CPTSolver::Source_Residual(CGeometry* geometry, CSolver** solver_container,
 //    Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
   }
 
+}
+
+
+void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
+                                            CNumerics* visc_numerics, CConfig* config, unsigned short val_marker) {
+  unsigned short iDim, iVar;
+  unsigned long iVertex, iPoint;
+
+#define MAXNDIM 3
+
+  bool implicit = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
+  bool viscous = config->GetViscous();
+  bool preprocessed = false;
+
+  /*--- Allocation of variables necessary for convective fluxes. ---*/
+  su2double Area, ProjVelocity_i, V_reflected[4], *V_domain, Normal[MAXNDIM] = {0.0}, UnitNormal[MAXNDIM] = {0.0};
+
+  /*--- Loop over all the vertices on this boundary marker. ---*/
+
+  for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
+    if (1/*!preprocessed || !geometry->bound_is_straight[val_marker]*/) {
+      /*----------------------------------------------------------------------------------------------*/
+      /*--- Preprocessing:                                                                         ---*/
+      /*--- Compute the unit normal and (in case of viscous flow) a corresponding unit tangential  ---*/
+      /*--- to that normal. On a straight(2D)/plane(3D) boundary these two vectors are constant.   ---*/
+      /*--- This circumstance is checked in gemoetry->ComputeSurf_Straightness(...) and stored     ---*/
+      /*--- such that the recomputation does not occur for each node. On true symmetry planes, the ---*/
+      /*--- normal is constant but this routines is used for Symmetry, Euler-Wall in inviscid flow ---*/
+      /*--- and Euler Wall in viscous flow as well. In the latter curvy boundaries are likely to   ---*/
+      /*--- happen. In doubt, the conditional above which checks straightness can be thrown out    ---*/
+      /*--- such that the recomputation is done for each node (which comes with a tiny performance ---*/
+      /*--- penalty).                                                                              ---*/
+      /*----------------------------------------------------------------------------------------------*/
+
+      preprocessed = true;
+
+      /*--- Normal vector for a random vertex (zero) on this marker (negate for outward convention). ---*/
+      geometry->vertex[val_marker][iVertex]->GetNormal(Normal);
+      for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
+
+      /*--- Compute unit normal, to be used for unit tangential, projected velocity and velocity
+            component gradients. ---*/
+      Area = 0.0;
+      for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim] * Normal[iDim];
+      Area = sqrt(Area);
+
+      for (iDim = 0; iDim < nDim; iDim++) UnitNormal[iDim] = -Normal[iDim] / Area;
+
+    }      // if bound_is_straight
+
+    iPoint = geometry->vertex[val_marker][iVertex]->GetNode();
+
+    /*--- Check if the node belongs to the domain (i.e., not a halo node) ---*/
+    if (geometry->nodes->GetDomain(iPoint)) {
+      /*-------------------------------------------------------------------------------*/
+      /*--- Step 1: For the convective fluxes, create a reflected state of the      ---*/
+      /*---         Primitive variables by copying all interior values to the       ---*/
+      /*---         reflected. Only the velocity is mirrored along the symmetry     ---*/
+      /*---         axis. Based on the Upwind_Residual routine.                     ---*/
+      /*-------------------------------------------------------------------------------*/
+
+      /*--- Grid movement ---*/
+      if (dynamic_grid)
+        conv_numerics->SetGridVel(geometry->nodes->GetGridVel(iPoint), geometry->nodes->GetGridVel(iPoint));
+
+      /*--- Normal vector for this vertex (negate for outward convention). ---*/
+      geometry->vertex[val_marker][iVertex]->GetNormal(Normal);
+      for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
+      conv_numerics->SetNormal(Normal);
+
+      /*--- Get current solution at this boundary node ---*/
+      V_domain = nodes->GetSolution(iPoint);
+
+      /*--- Set the reflected state based on the boundary node. Scalars are copied and
+            the velocity is mirrored along the symmetry boundary, i.e. the velocity in
+            normal direction is substracted twice. ---*/
+      for (iVar = 0; iVar < nVar; iVar++) V_reflected[iVar] = nodes->GetSolution(iPoint, iVar);
+
+      /*--- Compute velocity in normal direction (ProjVelcity_i=(v*n)) und substract twice from
+            velocity in normal direction: v_r = v - 2 (v*n)n ---*/
+      ProjVelocity_i = 0.0;
+      for (iDim = 0; iDim < nDim; ++iDim) ProjVelocity_i += nodes->GetSolution(iPoint,iDim+1) * UnitNormal[iDim];
+
+      /*--- Adjustment to v.n due to grid movement. ---*/
+      if (dynamic_grid) {
+        ProjVelocity_i -= GeometryToolbox::DotProduct(nDim, geometry->nodes->GetGridVel(iPoint), UnitNormal);
+      }
+
+      if (ProjVelocity_i >= 0) {
+//        V_reflected[0] = 0.0;
+        for (iDim = 0; iDim < nDim; iDim++)
+          V_reflected[iDim + 1] = nodes->GetSolution(iPoint, iDim + 1) - 2.0 * ProjVelocity_i * UnitNormal[iDim];
+
+        /*--- Set Primitive and Secondary for numerics class. ---*/
+        conv_numerics->SetConservative(V_domain, V_reflected);
+      } else {
+        conv_numerics->SetConservative(V_domain, V_domain);
+      }
+
+      /*--- Compute the residual using an upwind scheme. ---*/
+
+      conv_numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);;
+
+      /*--- Update residual value ---*/
+      LinSysRes.AddBlock(iPoint, Residual);
+
+      /*--- Jacobian contribution for implicit integration. ---*/
+      if (implicit) {
+        Jacobian.AddBlock2Diag(iPoint, Jacobian_i);
+      }
+
+    }    // if GetDomain
+  }      // for iVertex
+
+}
+void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
+                                            CSolver **solver_container,
+                                            CConfig *config,
+                                            unsigned short iMesh) {
+
+  unsigned short iMarker, iDim;
+  unsigned long iVertex, iPoint;
+
+  su2double Normal[3], Area, NDfactor;
+
+  NDfactor = config->GetLiquidWaterContent()*V_inf;
+
+  for (iMarker = 0; iMarker < nMarker; ++iMarker) {
+    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; ++iVertex) {
+
+      geometry->vertex[iMarker][iVertex]->GetNormal(Normal);
+
+      /*--- Compute unit normal ---*/
+      Area = 0.0;
+      for (iDim = 0; iDim < nDim; iDim++) Area += Normal[iDim] * Normal[iDim];
+      Area = sqrt(Area);
+
+      for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim] / Area;
+
+      iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
+
+      CollectionEfficiency[iMarker][iVertex] = 0.0;
+
+      for (iDim = 0; iDim < nDim; ++iDim)
+        CollectionEfficiency[iMarker][iVertex] += nodes->GetSolution(iPoint, iDim + 1) * Normal[iDim];
+
+      CollectionEfficiency[iMarker][iVertex] /= NDfactor;
+
+    }
+  }
 }
