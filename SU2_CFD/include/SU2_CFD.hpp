@@ -33,6 +33,7 @@
 
 #include "drivers/CDriver.hpp"
 #include "drivers/CSinglezoneDriver.hpp"
+#include "drivers/CPTDriver.hpp"
 #include "drivers/CMultizoneDriver.hpp"
 #include "drivers/CDiscAdjSinglezoneDriver.hpp"
 #include "drivers/CDiscAdjMultizoneDriver.hpp"

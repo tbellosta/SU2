@@ -77,6 +77,7 @@ private:
   su2double Highlite_Area;        /*!< \brief Highlite area. */
   su2double Fan_Poly_Eff;         /*!< \brief Fan polytropic effeciency. */
   su2double MinLogResidual;       /*!< \brief Minimum value of the log residual. */
+  su2double MinLogResidual_PT;       /*!< \brief Minimum value of the log residual. */
   su2double EA_ScaleFactor;       /*!< \brief Equivalent Area scaling factor */
   su2double* EA_IntLimit;         /*!< \brief Integration limits of the Equivalent Area computation */
   su2double AdjointLimit;         /*!< \brief Adjoint variable limit */
@@ -490,6 +491,7 @@ private:
   Kind_DiscAdj_Linear_Prec,              /*!< \brief Preconditioner of the discrete adjoint linear solver. */
   Kind_SlopeLimit,              /*!< \brief Global slope limiter. */
   Kind_SlopeLimit_Flow,         /*!< \brief Slope limiter for flow equations.*/
+  Kind_SlopeLimit_PT,         /*!< \brief Slope limiter for flow equations.*/
   Kind_SlopeLimit_Turb,         /*!< \brief Slope limiter for the turbulence equation.*/
   Kind_SlopeLimit_AdjTurb,      /*!< \brief Slope limiter for the adjoint turbulent equation.*/
   Kind_SlopeLimit_AdjFlow,      /*!< \brief Slope limiter for the adjoint equation.*/
@@ -520,10 +522,12 @@ private:
   Kind_Centered_Flow,           /*!< \brief Centered scheme for the flow equations. */
   Kind_Centered_AdjFlow,        /*!< \brief Centered scheme for the adjoint flow equations. */
   Kind_Centered_Turb,           /*!< \brief Centered scheme for the turbulence model. */
+  Kind_Centered_PT,           /*!< \brief Centered scheme for the turbulence model. */
   Kind_Centered_AdjTurb,        /*!< \brief Centered scheme for the adjoint turbulence model. */
   Kind_Centered_Template,       /*!< \brief Centered scheme for the template model. */
   Kind_Upwind,                  /*!< \brief Upwind scheme. */
   Kind_Upwind_Flow,             /*!< \brief Upwind scheme for the flow equations. */
+  Kind_Upwind_PT,             /*!< \brief Upwind scheme for the flow equations. */
   Kind_Upwind_AdjFlow,          /*!< \brief Upwind scheme for the adjoint flow equations. */
   Kind_Upwind_Turb,             /*!< \brief Upwind scheme for the turbulence model. */
   Kind_Upwind_AdjTurb,          /*!< \brief Upwind scheme for the adjoint turbulence model. */
@@ -672,7 +676,8 @@ private:
   bool Restart,                 /*!< \brief Restart solution (for direct, adjoint, and linearized problems).*/
   Wrt_Binary_Restart,           /*!< \brief Write binary SU2 native restart files.*/
   Read_Binary_Restart,          /*!< \brief Read binary SU2 native restart files.*/
-  Restart_Flow;                 /*!< \brief Restart flow solution for adjoint and linearized problems. */
+  Restart_Flow,                 /*!< \brief Restart flow solution for adjoint and linearized problems. */
+  Restart_PT;                 /*!< \brief Restart flow solution for adjoint and linearized problems. */
   unsigned short nMarker_Monitoring,  /*!< \brief Number of markers to monitor. */
   nMarker_Designing,                  /*!< \brief Number of markers for the objective function. */
   nMarker_GeoEval,                    /*!< \brief Number of markers for the objective function. */
@@ -762,18 +767,23 @@ private:
   string Mesh_FileName,          /*!< \brief Mesh input file. */
   Mesh_Out_FileName,             /*!< \brief Mesh output file. */
   Solution_FileName,             /*!< \brief Flow solution input file. */
+  Solution_FileName_PT,             /*!< \brief Flow solution input file. */
   Solution_LinFileName,          /*!< \brief Linearized flow solution input file. */
   Solution_AdjFileName,          /*!< \brief Adjoint solution input file for drag functional. */
   Volume_FileName,               /*!< \brief Flow variables output file. */
+  Volume_FileName_PT,               /*!< \brief Flow variables output file. */
   Residual_FileName,             /*!< \brief Residual variables output file. */
   Conv_FileName,                 /*!< \brief Convergence history output file. */
+  Conv_FileName_PT,                 /*!< \brief Convergence history output file. */
   Breakdown_FileName,            /*!< \brief Breakdown output file. */
   Restart_FileName,              /*!< \brief Restart file for flow variables. */
+  Restart_FileName_PT,              /*!< \brief Restart file for flow variables. */
   Restart_AdjFileName,           /*!< \brief Restart file for adjoint variables, drag functional. */
   Adj_FileName,                  /*!< \brief Output file with the adjoint variables. */
   ObjFunc_Grad_FileName,         /*!< \brief Gradient of the objective function. */
   ObjFunc_Value_FileName,        /*!< \brief Objective function. */
   SurfCoeff_FileName,            /*!< \brief Output file with the flow variables on the surface. */
+  SurfCoeff_FileName_PT,            /*!< \brief Output file with the flow variables on the surface. */
   SurfAdjCoeff_FileName,         /*!< \brief Output file with the adjoint variables on the surface. */
   New_SU2_FileName,              /*!< \brief Output SU2 mesh file converted from CGNS format. */
   SurfSens_FileName,             /*!< \brief Output file for the sensitivity on the surface (discrete adjoint). */
@@ -1070,6 +1080,7 @@ private:
   su2double *Wall_Emissivity;          /*!< \brief Emissivity of the wall. */
   bool Radiation;                      /*!< \brief Determines if a radiation model is incorporated. */
   su2double CFL_Rad;                   /*!< \brief CFL Number for the radiation solver. */
+  su2double CFL_PT;                   /*!< \brief CFL Number for the PT solver. */
 
   su2double default_vel_inf[3],  /*!< \brief Default freestream velocity array for the COption class. */
   default_eng_cyl[7],            /*!< \brief Default engine box array for the COption class. */
@@ -1174,6 +1185,7 @@ private:
   *Wall_Catalytic;                          /*!< \brief Pointer to catalytic walls. */
 
   su2double particleSize;
+  bool eulerianPT;
 
   /*!
    * \brief Set the default values of config options not set in the config file using another config object.
@@ -1576,6 +1588,8 @@ public:
   su2double GetHTP_Axis(unsigned short val_index) const { return HTP_Axis[val_index]; }
 
   su2double GetParticle_Size(void) const { return particleSize; }
+
+  bool GetEulerianPaticleTracking(void) const { return eulerianPT; }
 
   /*!
    * \brief Get the value of the limits for the sections.
@@ -4539,6 +4553,7 @@ public:
    * \return Kind of center convective numerical scheme for the flow equations.
    */
   ENUM_CENTERED GetKind_Centered_Flow(void) const { return static_cast<ENUM_CENTERED>(Kind_Centered_Flow); }
+  ENUM_CENTERED GetKind_Centered_PT(void) const { return static_cast<ENUM_CENTERED>(Kind_Centered_PT); }
 
   /*!
    * \brief Get the kind of center convective numerical scheme for the plasma equations.
@@ -4555,6 +4570,7 @@ public:
    * \return Kind of upwind convective numerical scheme for the flow equations.
    */
   unsigned short GetKind_Upwind_Flow(void) const { return Kind_Upwind_Flow; }
+  unsigned short GetKind_Upwind_PT(void) const { return Kind_Upwind_PT; }
 
   /*!
    * \brief Get the kind of finite element convective numerical scheme for the flow equations.
@@ -4591,6 +4607,7 @@ public:
    * \return Method for limiting the spatial gradients solving the flow equations.
    */
   unsigned short GetKind_SlopeLimit_Flow(void) const { return Kind_SlopeLimit_Flow; }
+  unsigned short GetKind_SlopeLimit_PT(void) const { return Kind_SlopeLimit_PT; }
 
   /*!
    * \brief Get the method for limiting the spatial gradients.
@@ -5283,6 +5300,7 @@ public:
    */
 
   bool GetRestart_Flow(void) const { return Restart_Flow; }
+  bool GetRestart_PT(void) const { return Restart_PT; }
 
   /*!
    * \brief Indicates whether the flow is frozen (chemistry deactivated).
@@ -5340,6 +5358,7 @@ public:
    * \return Name of the file with the solution of the flow problem.
    */
   string GetSolution_FileName(void) const { return Solution_FileName; }
+  string GetSolution_FileName_PT(void) const { return Solution_FileName_PT; }
 
   /*!
    * \brief Get the name of the file with the solution of the adjoint flow problem
@@ -5403,6 +5422,7 @@ public:
    * \return Name of the file with the primitive variables.
    */
   string GetVolume_FileName(void) const { return Volume_FileName; }
+  string GetVolume_FileName_PT(void) const { return Volume_FileName_PT; }
 
   /*!
    * \brief Add any numbers necessary to the filename (iteration number, zone ID ...)
@@ -5442,6 +5462,7 @@ public:
    * \return Name of the restart file for the flow variables.
    */
   string GetRestart_FileName(void) const { return Restart_FileName; }
+  string GetRestart_FileName_PT(void) const { return Restart_FileName_PT; }
 
   /*!
    * \brief Get the name of the restart file for the adjoint variables (drag objective function).
@@ -5472,6 +5493,7 @@ public:
    * \return Name of the file with the surface information for the flow problem.
    */
   string GetSurfCoeff_FileName(void) const { return SurfCoeff_FileName; }
+  string GetSurfCoeff_FileName_PT(void) const { return SurfCoeff_FileName_PT; }
 
   /*!
    * \brief Get the name of the file with the surface information for the adjoint problem.
@@ -6211,6 +6233,7 @@ public:
    * \return Value of the minimum residual value (log10 scale).
    */
   su2double GetMinLogResidual(void) const { return MinLogResidual; }
+  su2double GetMinLogResidual_PT(void) const { return MinLogResidual_PT; }
 
   /*!
    * \brief Value of the damping factor for the engine inlet bc.
@@ -9162,6 +9185,8 @@ public:
    * \return Value of the CFL condition for radiation solvers.
    */
   su2double GetCFL_Rad(void) const { return CFL_Rad; }
+
+  su2double GetCFL_PT(void) const { return CFL_PT; }
 
   /*!
    * \brief Determines if radiation needs to be incorporated to the analysis.

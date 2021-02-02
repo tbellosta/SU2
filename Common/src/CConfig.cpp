@@ -1112,6 +1112,8 @@ void CConfig::SetConfig_Options() {
   /*!\brief WEAKLY_COUPLED_HEAT_EQUATION \n DESCRIPTION: Enable heat equation for incompressible flows. \ingroup Config*/
   addBoolOption("WEAKLY_COUPLED_HEAT_EQUATION", Weakly_Coupled_Heat, NO);
 
+  addBoolOption("RESTART_PT", Restart_PT, YES);
+
   /*\brief AXISYMMETRIC \n DESCRIPTION: Axisymmetric simulation \n DEFAULT: false \ingroup Config */
   addBoolOption("AXISYMMETRIC", Axisymmetric, false);
   /* DESCRIPTION: Add the gravity force */
@@ -1239,6 +1241,7 @@ void CConfig::SetConfig_Options() {
   /*!\brief MACH_NUMBER  \n DESCRIPTION:  Mach number (non-dimensional, based on the free-stream values). 0.0 by default \ingroup Config*/
   addDoubleOption("MACH_NUMBER", Mach, 0.0);
   addDoubleOption("LWC", LWC, 0.001);
+  addBoolOption("TRACK_PARTICLES", eulerianPT, false);
   /*!\brief INIT_OPTION \n DESCRIPTION: Init option to choose between Reynolds or thermodynamics quantities for initializing the solution \n OPTIONS: see \link InitOption_Map \endlink \n DEFAULT REYNOLDS \ingroup Config*/
   addEnumOption("INIT_OPTION", Kind_InitOption, InitOption_Map, REYNOLDS);
   /* DESCRIPTION: Free-stream option to choose between density and temperature for initializing the solution */
@@ -1742,6 +1745,7 @@ void CConfig::SetConfig_Options() {
   addEnumOption("CONV_CRITERIA", ConvCriteria, Converge_Crit_Map, RESIDUAL);
   /*!\brief CONV_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -14.0 \ingroup Config*/
   addDoubleOption("CONV_RESIDUAL_MINVAL", MinLogResidual, -14.0);
+  addDoubleOption("CONV_RESIDUAL_MINVAL_PT", MinLogResidual_PT, -14.0);
   /*!\brief CONV_STARTITER\n DESCRIPTION: Iteration number to begin convergence monitoring\n DEFAULT: 5 \ingroup Config*/
   addUnsignedLongOption("CONV_STARTITER", StartConv_Iter, 5);
   /*!\brief CONV_CAUCHY_ELEMS\n DESCRIPTION: Number of elements to apply the criteria. \n DEFAULT 100 \ingroup Config*/
@@ -1804,6 +1808,7 @@ void CConfig::SetConfig_Options() {
   /*!\brief CONV_NUM_METHOD_FLOW
    *  \n DESCRIPTION: Convective numerical method \n OPTIONS: See \link Upwind_Map \endlink , \link Centered_Map \endlink. \ingroup Config*/
   addConvectOption("CONV_NUM_METHOD_FLOW", Kind_ConvNumScheme_Flow, Kind_Centered_Flow, Kind_Upwind_Flow);
+  addConvectOption("CONV_NUM_METHOD_PT", Kind_ConvNumScheme_PT, Kind_Centered_PT, Kind_Upwind_PT);
 
   /*!\brief NUM_METHOD_FEM_FLOW
    *  \n DESCRIPTION: Numerical method \n OPTIONS: See \link FEM_Map \endlink , \link Centered_Map \endlink. \ingroup Config*/
@@ -1814,6 +1819,7 @@ void CConfig::SetConfig_Options() {
   /*!\brief SLOPE_LIMITER_FLOW
    * DESCRIPTION: Slope limiter for the direct solution. \n OPTIONS: See \link Limiter_Map \endlink \n DEFAULT VENKATAKRISHNAN \ingroup Config*/
   addEnumOption("SLOPE_LIMITER_FLOW", Kind_SlopeLimit_Flow, Limiter_Map, VENKATAKRISHNAN);
+  addEnumOption("SLOPE_LIMITER_PT", Kind_SlopeLimit_PT, Limiter_Map, VAN_ALBADA_EDGE);
   default_jst_coeff[0] = 0.5; default_jst_coeff[1] = 0.02;
   /*!\brief JST_SENSOR_COEFF \n DESCRIPTION: 2nd and 4th order artificial dissipation coefficients for the JST method \ingroup Config*/
   addDoubleArrayOption("JST_SENSOR_COEFF", 2, Kappa_Flow, default_jst_coeff);
@@ -1867,9 +1873,9 @@ void CConfig::SetConfig_Options() {
 
   /*!\brief MUSCL_FLOW \n DESCRIPTION: Check if the MUSCL scheme should be used \ingroup Config*/
   addBoolOption("MUSCL_PT", MUSCL_PT, false);
-  /*!\brief CONV_NUM_METHOD_PT
-   *  \n DESCRIPTION: Convective numerical method \n DEFAULT: UPWIND */
-  addEnumOption("CONV_NUM_METHOD_PT", Kind_ConvNumScheme_PT, Space_Map, SPACE_UPWIND);
+//  /*!\brief CONV_NUM_METHOD_PT
+//   *  \n DESCRIPTION: Convective numerical method \n DEFAULT: UPWIND */
+//  addEnumOption("CONV_NUM_METHOD_PT", Kind_ConvNumScheme_PT, Space_Map, SPACE_UPWIND);
 
   /*!\par CONFIG_CATEGORY: Adjoint and Gradient \ingroup Config*/
   /*--- Options related to the adjoint and gradient ---*/
@@ -1978,18 +1984,22 @@ void CConfig::SetConfig_Options() {
 
   /*!\brief CONV_FILENAME \n DESCRIPTION: Output file convergence history (w/o extension) \n DEFAULT: history \ingroup Config*/
   addStringOption("CONV_FILENAME", Conv_FileName, string("history"));
+  addStringOption("CONV_FILENAME_PT", Conv_FileName_PT, string("history"));
   /*!\brief BREAKDOWN_FILENAME \n DESCRIPTION: Output file forces breakdown \ingroup Config*/
   addStringOption("BREAKDOWN_FILENAME", Breakdown_FileName, string("forces_breakdown.dat"));
   /*!\brief SOLUTION_FLOW_FILENAME \n DESCRIPTION: Restart flow input file (the file output under the filename set by RESTART_FLOW_FILENAME) \n DEFAULT: solution_flow.dat \ingroup Config */
   addStringOption("SOLUTION_FILENAME", Solution_FileName, string("solution.dat"));
+  addStringOption("SOLUTION_FILENAME_PT", Solution_FileName_PT, string("solution.dat"));
   /*!\brief SOLUTION_ADJ_FILENAME\n DESCRIPTION: Restart adjoint input file. Objective function abbreviation is expected. \ingroup Config*/
   addStringOption("SOLUTION_ADJ_FILENAME", Solution_AdjFileName, string("solution_adj.dat"));
   /*!\brief RESTART_FLOW_FILENAME \n DESCRIPTION: Output file restart flow \ingroup Config*/
   addStringOption("RESTART_FILENAME", Restart_FileName, string("restart.dat"));
+  addStringOption("RESTART_FILENAME_PT", Restart_FileName_PT, string("restart.dat"));
   /*!\brief RESTART_ADJ_FILENAME  \n DESCRIPTION: Output file restart adjoint. Objective function abbreviation will be appended. \ingroup Config*/
   addStringOption("RESTART_ADJ_FILENAME", Restart_AdjFileName, string("restart_adj.dat"));
   /*!\brief VOLUME_FLOW_FILENAME  \n DESCRIPTION: Output file flow (w/o extension) variables \ingroup Config */
   addStringOption("VOLUME_FILENAME", Volume_FileName, string("vol_solution"));
+  addStringOption("VOLUME_FILENAME_PT", Volume_FileName_PT, string("vol_solution"));
   /*!\brief VOLUME_ADJ_FILENAME
    *  \n DESCRIPTION: Output file adjoint (w/o extension) variables  \ingroup Config*/
   addStringOption("VOLUME_ADJ_FILENAME", Adj_FileName, string("adj_vol_solution"));
@@ -2002,6 +2012,7 @@ void CConfig::SetConfig_Options() {
   /*!\brief SURFACE_FLOW_FILENAME
    *  \n DESCRIPTION: Output file surface flow coefficient (w/o extension)  \ingroup Config*/
   addStringOption("SURFACE_FILENAME", SurfCoeff_FileName, string("surface"));
+  addStringOption("SURFACE_FILENAME_PT", SurfCoeff_FileName_PT, string("surface"));
   /*!\brief SURFACE_ADJ_FILENAME
    *  \n DESCRIPTION: Output file surface adjoint coefficient (w/o extension)  \ingroup Config*/
   addStringOption("SURFACE_ADJ_FILENAME", SurfAdjCoeff_FileName, string("surface_adjoint"));
@@ -2555,6 +2566,7 @@ void CConfig::SetConfig_Options() {
 
   /* DESCRIPTION:  Courant-Friedrichs-Lewy condition of the finest grid in radiation solvers */
   addDoubleOption("CFL_NUMBER_RAD", CFL_Rad, 1.0);
+  addDoubleOption("CFL_NUMBER_PT", CFL_PT, 1.0);
 
   /*!\par CONFIG_CATEGORY: Heat solver \ingroup Config*/
   /*--- options related to the heat solver ---*/
@@ -8239,7 +8251,7 @@ void CConfig::SetGlobalParam(unsigned short val_solver,
 
     case PARTICLE_TRACKING:
       if (val_system == RUNTIME_PT_SYS) {
-        SetKind_ConvNumScheme(Kind_ConvNumScheme_PT, NONE, NONE, NONE, MUSCL_PT, NONE);
+        SetKind_ConvNumScheme(Kind_ConvNumScheme_PT, Kind_Centered_PT, Kind_Upwind_PT, Kind_SlopeLimit_PT, MUSCL_PT, NONE);
         SetKind_TimeIntScheme(Kind_TimeIntScheme_PT);
       }
       break;

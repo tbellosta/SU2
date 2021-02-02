@@ -1,7 +1,7 @@
 /*!
- * \file driver_direct_singlezone.cpp
+ * \file CPTDriver.cpp
  * \brief The main subroutines for driving single-zone problems.
- * \author R. Sanchez
+ * \author T. Bellosta
  * \version 7.0.7 "Blackbird"
  *
  * SU2 Project Website: https://su2code.github.io
@@ -25,12 +25,12 @@
  * License along with SU2. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "../../include/drivers/CSinglezoneDriver.hpp"
+#include "../../include/drivers/CPTDriver.hpp"
 #include "../../include/definition_structure.hpp"
 #include "../../include/output/COutput.hpp"
 #include "../../include/iteration/CIteration.hpp"
 
-CSinglezoneDriver::CSinglezoneDriver(char* confFile,
+CPTDriver::CPTDriver(char* confFile,
                        unsigned short val_nZone,
                        SU2_Comm MPICommunicator) : CDriver(confFile,
                                                           val_nZone,
@@ -40,13 +40,16 @@ CSinglezoneDriver::CSinglezoneDriver(char* confFile,
   /*--- Initialize the counter for TimeIter ---*/
   TimeIter = 0;
 
+  StopCalc_PT = false;
+  runtimeFlow = true;
+
 }
 
-CSinglezoneDriver::~CSinglezoneDriver(void) {
+CPTDriver::~CPTDriver(void) {
 
 }
 
-void CSinglezoneDriver::StartSolver() {
+void CPTDriver::StartSolver() {
 
   StartTime = SU2_MPI::Wtime();
 
@@ -58,7 +61,7 @@ void CSinglezoneDriver::StartSolver() {
     cout << endl <<"------------------------------ Begin Solver -----------------------------" << endl;
 
   if (rank == MASTER_NODE){
-    cout << endl <<"Simulation Run using the Single-zone Driver" << endl;
+    cout << endl <<"Simulation Run using the particle tracking (Single-zone) Driver" << endl;
     if (driver_config->GetTime_Domain())
       cout << "The simulation will run for "
            << driver_config->GetnTime_Iter() - config_container[ZONE_0]->GetRestart_Iter() << " time steps." << endl;
@@ -71,6 +74,36 @@ void CSinglezoneDriver::StartSolver() {
   /*--- Run the problem until the number of time iterations required is reached. ---*/
   while ( TimeIter < config_container[ZONE_0]->GetnTime_Iter() ) {
 
+    /*--- Solve flow system then particles ---*/
+
+    /*--- Flow system ---*/
+    setRuntimeFlow();
+    /*--- Perform some preprocessing before starting the time-step simulation. ---*/
+
+    Preprocess(TimeIter);
+
+    /*--- Run a time-step iteration of the single-zone problem. ---*/
+
+    Run();
+
+    /*--- Perform some postprocessing on the solution before the update ---*/
+
+    Postprocess();
+
+    /*--- Update the solution for dual time stepping strategy ---*/
+
+    Update();
+
+    /*--- Monitor the computations after each iteration. ---*/
+
+    Monitor(TimeIter);
+
+    /*--- Output the solution in files. ---*/
+
+    Output(TimeIter);
+
+    /*--- Particle system ---*/
+    setRuntimeParticles();
     /*--- Perform some preprocessing before starting the time-step simulation. ---*/
 
     Preprocess(TimeIter);
@@ -105,7 +138,7 @@ void CSinglezoneDriver::StartSolver() {
 
 }
 
-void CSinglezoneDriver::Preprocess(unsigned long TimeIter) {
+void CPTDriver::Preprocess(unsigned long TimeIter) {
 
   /*--- Set runtime option ---*/
 
@@ -125,22 +158,22 @@ void CSinglezoneDriver::Preprocess(unsigned long TimeIter) {
     config_container[ZONE_0]->SetPhysicalTime(0.0);
 
   /*--- Set the initial condition for EULER/N-S/RANS ---------------------------------------------*/
-  if (config_container[ZONE_0]->GetFluidProblem()) {
+  if (runtimeFlow) {
     solver_container[ZONE_0][INST_0][MESH_0][FLOW_SOL]->SetInitialCondition(geometry_container[ZONE_0][INST_0],
                                                                             solver_container[ZONE_0][INST_0],
                                                                             config_container[ZONE_0], TimeIter);
   }
-  if (config_container[ZONE_0]->GetKind_Solver() == PARTICLE_TRACKING || config_container[ZONE_0]->GetEulerianPaticleTracking())
-    solver_container[ZONE_0][INST_0][MESH_0][PT_SOL]->SetInitialCondition(geometry_container[ZONE_0][INST_0],
-                                                                            solver_container[ZONE_0][INST_0],
-                                                                            config_container[ZONE_0], TimeIter);
+  else {
+    solver_container[ZONE_0][INST_0][MESH_0][PT_SOL]->SetInitialCondition(
+        geometry_container[ZONE_0][INST_0], solver_container[ZONE_0][INST_0], config_container[ZONE_0], TimeIter);
+  }
 
 #ifdef HAVE_MPI
   SU2_MPI::Barrier(MPI_COMM_WORLD);
 #endif
 
   /*--- Run a predictor step ---*/
-  if (config_container[ZONE_0]->GetPredictor())
+  if (config_container[ZONE_0]->GetPredictor() && runtimeFlow)
     iteration_container[ZONE_0][INST_0]->Predictor(output_container[ZONE_0], integration_container, geometry_container, solver_container,
         numerics_container, config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
 
@@ -152,39 +185,59 @@ void CSinglezoneDriver::Preprocess(unsigned long TimeIter) {
 
 }
 
-void CSinglezoneDriver::Run() {
+void CPTDriver::Run() {
 
   unsigned long OuterIter = 0;
   config_container[ZONE_0]->SetOuterIter(OuterIter);
 
   /*--- Iterate the zone as a block, either to convergence or to a max number of iterations ---*/
-  iteration_container[ZONE_0][INST_0]->Solve(output_container[ZONE_0], integration_container, geometry_container, solver_container,
-        numerics_container, config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
+  if (runtimeFlow) {
+    iteration_container[ZONE_0][INST_0]->Solve(output_container[ZONE_0], integration_container, geometry_container,
+                                               solver_container, numerics_container, config_container, surface_movement,
+                                               grid_movement, FFDBox, ZONE_0, INST_0);
+  } else {
+    iteration_container_PT[ZONE_0][INST_0]->Solve(output_container_PT[ZONE_0], integration_container, geometry_container,
+                                               solver_container, numerics_container, config_container, surface_movement,
+                                               grid_movement, FFDBox, ZONE_0, INST_0);
+  }
 
 }
 
-void CSinglezoneDriver::Postprocess() {
+void CPTDriver::Postprocess() {
 
-    iteration_container[ZONE_0][INST_0]->Postprocess(output_container[ZONE_0], integration_container, geometry_container, solver_container,
-        numerics_container, config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
+  if (runtimeFlow) {
+    iteration_container[ZONE_0][INST_0]->Postprocess(
+        output_container[ZONE_0], integration_container, geometry_container, solver_container, numerics_container,
+        config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
+  } else {
+    iteration_container_PT[ZONE_0][INST_0]->Postprocess(
+        output_container_PT[ZONE_0], integration_container, geometry_container, solver_container, numerics_container,
+        config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
+  }
 
     /*--- A corrector step can help preventing numerical instabilities ---*/
 
-    if (config_container[ZONE_0]->GetRelaxation())
+    if (config_container[ZONE_0]->GetRelaxation() && runtimeFlow)
       iteration_container[ZONE_0][INST_0]->Relaxation(output_container[ZONE_0], integration_container, geometry_container, solver_container,
           numerics_container, config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
 
 }
 
-void CSinglezoneDriver::Update() {
+void CPTDriver::Update() {
 
-  iteration_container[ZONE_0][INST_0]->Update(output_container[ZONE_0], integration_container, geometry_container,
-        solver_container, numerics_container, config_container,
-        surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
+  if (runtimeFlow) {
+    iteration_container[ZONE_0][INST_0]->Update(output_container[ZONE_0], integration_container, geometry_container,
+                                                solver_container, numerics_container, config_container,
+                                                surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
+  } else {
+    iteration_container_PT[ZONE_0][INST_0]->Update(output_container_PT[ZONE_0], integration_container, geometry_container,
+                                                solver_container, numerics_container, config_container,
+                                                surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
+  }
 
 }
 
-void CSinglezoneDriver::Output(unsigned long TimeIter) {
+void CPTDriver::Output(unsigned long TimeIt) {
 
   /*--- Time the output for performance benchmarking. ---*/
 
@@ -194,10 +247,16 @@ void CSinglezoneDriver::Output(unsigned long TimeIter) {
 
   StartTime = SU2_MPI::Wtime();
 
-  bool wrote_files = output_container[ZONE_0]->SetResult_Files(geometry_container[ZONE_0][INST_0][MESH_0],
+  bool wrote_files;
+  if (runtimeFlow)
+    wrote_files = output_container[ZONE_0]->SetResult_Files(geometry_container[ZONE_0][INST_0][MESH_0],
                                                                config_container[ZONE_0],
                                                                solver_container[ZONE_0][INST_0][MESH_0],
-                                                               TimeIter, StopCalc);
+                                                               TimeIt, StopCalc);
+  else wrote_files = output_container_PT[ZONE_0]->SetResult_Files(geometry_container[ZONE_0][INST_0][MESH_0],
+                                                               config_container[ZONE_0],
+                                                               solver_container[ZONE_0][INST_0][MESH_0],
+                                                               TimeIt, StopCalc);
 
   if (wrote_files){
 
@@ -213,9 +272,9 @@ void CSinglezoneDriver::Output(unsigned long TimeIter) {
   }
 }
 
-void CSinglezoneDriver::DynamicMeshUpdate(unsigned long TimeIter) {
+void CPTDriver::DynamicMeshUpdate(unsigned long TimeIter) {
 
-  auto iteration = iteration_container[ZONE_0][INST_0];
+  CIteration *iteration = (runtimeFlow) ? iteration_container[ZONE_0][INST_0] : iteration_container_PT[ZONE_0][INST_0];
 
   /*--- Legacy dynamic mesh update - Only if GRID_MOVEMENT = YES ---*/
   if (config_container[ZONE_0]->GetGrid_Movement()) {
@@ -238,17 +297,19 @@ void CSinglezoneDriver::DynamicMeshUpdate(unsigned long TimeIter) {
   }
 }
 
-bool CSinglezoneDriver::Monitor(unsigned long TimeIter){
+bool CPTDriver::Monitor(unsigned long TimeIter){
 
   unsigned long nInnerIter, InnerIter, nTimeIter;
   su2double MaxTime, CurTime;
   bool TimeDomain, InnerConvergence, TimeConvergence, FinalTimeReached, MaxIterationsReached;
 
+  COutput *output = (runtimeFlow) ? output_container[ZONE_0] : output_container_PT[ZONE_0];
+
   nInnerIter = config_container[ZONE_0]->GetnInner_Iter();
   InnerIter  = config_container[ZONE_0]->GetInnerIter();
   nTimeIter  = config_container[ZONE_0]->GetnTime_Iter();
   MaxTime    = config_container[ZONE_0]->GetMax_Time();
-  CurTime    = output_container[ZONE_0]->GetHistoryFieldValue("CUR_TIME");
+  CurTime    = output->GetHistoryFieldValue("CUR_TIME");
 
   TimeDomain = config_container[ZONE_0]->GetTime_Domain();
 
@@ -257,14 +318,14 @@ bool CSinglezoneDriver::Monitor(unsigned long TimeIter){
 
   if (TimeDomain == NO){
 
-    InnerConvergence     = output_container[ZONE_0]->GetConvergence();
+    InnerConvergence     = output->GetConvergence();
     MaxIterationsReached = InnerIter+1 >= nInnerIter;
 
     if ((MaxIterationsReached || InnerConvergence) && (rank == MASTER_NODE)) {
       cout << endl << "----------------------------- Solver Exit -------------------------------" << endl;
       if (InnerConvergence) cout << "All convergence criteria satisfied." << endl;
       else cout << endl << "Maximum number of iterations reached (ITER = " << nInnerIter << ") before convergence." << endl;
-      output_container[ZONE_0]->PrintConvergenceSummary();
+      output->PrintConvergenceSummary();
       cout << "-------------------------------------------------------------------------" << endl;
     }
 
@@ -293,7 +354,7 @@ bool CSinglezoneDriver::Monitor(unsigned long TimeIter){
 
   /*--- Reset the inner convergence --- */
 
-  output_container[ZONE_0]->SetConvergence(false);
+  output->SetConvergence(false);
 
   /*--- Increase the total iteration count --- */
 
@@ -302,7 +363,7 @@ bool CSinglezoneDriver::Monitor(unsigned long TimeIter){
   return StopCalc;
 }
 
-void CSinglezoneDriver::Runtime_Options(){
+void CPTDriver::Runtime_Options(){
 
   ifstream runtime_configfile;
 
@@ -319,6 +380,7 @@ void CSinglezoneDriver::Runtime_Options(){
 
 }
 
-bool CSinglezoneDriver::GetTimeConvergence() const{
-  return output_container[ZONE_0]->GetTimeConvergence();
+bool CPTDriver::GetTimeConvergence() const{
+  COutput *output = (runtimeFlow) ? output_container[ZONE_0] : output_container_PT[ZONE_0];
+  return output->GetTimeConvergence();
 }

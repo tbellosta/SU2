@@ -30,11 +30,14 @@
 
 CPTVariable::CPTVariable(su2double volumeFraction, su2double* velocity, unsigned long npoint, unsigned long ndim,
                          unsigned long nvar, CConfig* config)
-    : CVariable(npoint, ndim, nvar, config), Gradient_Reconstruction(config->GetReconstructionGradientRequired() ? Gradient_Aux : Gradient) {
+    : CVariable(npoint, ndim, nvar, config), Gradient_Reconstruction(config->GetReconstructionGradientRequired() ? Gradient_Aux : Gradient_Primitive) {
 
   bool low_fidelity = false;
   bool dual_time = ((config->GetTime_Marching() == DT_STEPPING_1ST) ||
                     (config->GetTime_Marching() == DT_STEPPING_2ND));
+
+  nPrimVar = nVar;
+  nSecondaryVar = 1;
 
   /*--- Initialization of PT variables ---*/
   su2double val_solution[4] = {volumeFraction, velocity[0], velocity[1], su2double(1)};
@@ -69,7 +72,7 @@ CPTVariable::CPTVariable(su2double volumeFraction, su2double* velocity, unsigned
   }
 
   /*--- Gradient related fields ---*/
-  Gradient.resize(nPoint,nVar,nDim,0.0);
+  Gradient_Primitive.resize(nPoint,nVar,nDim,0.0);
 
   if (config->GetReconstructionGradientRequired()) {
     Gradient_Aux.resize(nPoint,nVar,nDim,0.0);
@@ -79,8 +82,12 @@ CPTVariable::CPTVariable(su2double volumeFraction, su2double* velocity, unsigned
     Rmatrix.resize(nPoint,nDim,nDim,0.0);
   }
 
-  if (config->GetKind_ConvNumScheme_Heat() == SPACE_CENTERED)
-    Undivided_Laplacian.resize(nPoint,nVar);
+  if (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED) {
+    Undivided_Laplacian.resize(nPoint, nVar);
+    Sensor.resize(nPoint) = su2double(0.0);
+  }
+
+  Lambda.resize(nPoint) = su2double(0.0);
 
   Max_Lambda_Inv.resize(nPoint);
   Max_Lambda_Visc.resize(nPoint);
@@ -96,4 +103,14 @@ CPTVariable::CPTVariable(su2double volumeFraction, su2double* velocity, unsigned
   /* Non-physical point (first-order) initialization. */
   Non_Physical.resize(nPoint) = false;
   Non_Physical_Counter.resize(nPoint) = 0;
+
+  Primitive.resize(nPoint,nPrimVar) = su2double(0.0);
+  Limiter_Primitive.resize(nPoint,nPrimVar) = su2double(0.0);
+
+  Secondary.resize(nPoint,nSecondaryVar) = su2double(0.0);
+
+  Solution_Max.resize(nPoint,nPrimVar) = su2double(0.0);
+  Solution_Min.resize(nPoint,nPrimVar) = su2double(0.0);
+
+
 }

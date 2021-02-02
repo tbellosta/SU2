@@ -133,7 +133,7 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
 
   /*--- Output preprocessing ---*/
 
-  Output_Preprocessing(config_container, driver_config, output_container, driver_output);
+  Output_Preprocessing(config_container, driver_config, output_container, driver_output, output_container_PT);
 
 
   for (iZone = 0; iZone < nZone; iZone++) {
@@ -142,12 +142,13 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
 
     nInst[iZone] = config_container[iZone]->GetnTimeInstances();
 
-    geometry_container[iZone]    = new CGeometry**    [nInst[iZone]];
-    iteration_container[iZone]   = new CIteration*    [nInst[iZone]];
-    solver_container[iZone]      = new CSolver***     [nInst[iZone]];
-    integration_container[iZone] = new CIntegration** [nInst[iZone]];
-    numerics_container[iZone]    = new CNumerics****  [nInst[iZone]];
-    grid_movement[iZone]         = new CVolumetricMovement* [nInst[iZone]];
+    geometry_container[iZone]       = new CGeometry**    [nInst[iZone]];
+    iteration_container[iZone]      = new CIteration*    [nInst[iZone]];
+    iteration_container_PT[iZone]   = new CIteration*    [nInst[iZone]];
+    solver_container[iZone]         = new CSolver***     [nInst[iZone]];
+    integration_container[iZone]    = new CIntegration** [nInst[iZone]];
+    numerics_container[iZone]       = new CNumerics****  [nInst[iZone]];
+    grid_movement[iZone]            = new CVolumetricMovement* [nInst[iZone]];
 
     /*--- Allocate transfer and interpolation container --- */
 
@@ -158,11 +159,12 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
 
       config_container[iZone]->SetiInst(iInst);
 
-      geometry_container[iZone][iInst]    = nullptr;
-      iteration_container[iZone][iInst]   = nullptr;
-      solver_container[iZone][iInst]      = nullptr;
-      integration_container[iZone][iInst] = nullptr;
-      grid_movement[iZone][iInst]         = nullptr;
+      geometry_container[iZone][iInst]       = nullptr;
+      iteration_container[iZone][iInst]      = nullptr;
+      iteration_container_PT[iZone][iInst]   = nullptr;
+      solver_container[iZone][iInst]         = nullptr;
+      integration_container[iZone][iInst]    = nullptr;
+      grid_movement[iZone][iInst]            = nullptr;
 
       /*--- Preprocessing of the geometry for all zones. In this routine, the edge-
        based data structure is constructed, i.e. node and cell neighbors are
@@ -218,12 +220,13 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
        different physics in different zones (fluid-structure interaction), or couple multiple
        systems tightly within a single zone by creating a new iteration class (e.g., RANS). ---*/
 
-      Iteration_Preprocessing(config_container[iZone], iteration_container[iZone][iInst]);
+      Iteration_Preprocessing(config_container[iZone], iteration_container[iZone][iInst], iteration_container_PT[iZone][iInst]);
 
       /*--- Dynamic mesh processing.  ---*/
 
-      DynamicMesh_Preprocessing(config_container[iZone], geometry_container[iZone][iInst], solver_container[iZone][iInst],
-                                iteration_container[iZone][iInst], grid_movement[iZone][iInst], surface_movement[iZone]);
+      DynamicMesh_Preprocessing(config_container[iZone], geometry_container[iZone][iInst],
+                                solver_container[iZone][iInst], iteration_container[iZone][iInst],
+                                grid_movement[iZone][iInst], surface_movement[iZone]);
       /*--- Static mesh processing.  ---*/
 
       StaticMesh_Preprocessing(config_container[iZone], geometry_container[iZone][iInst], surface_movement[iZone]);
@@ -319,7 +322,9 @@ void CDriver::SetContainers_Null(){
 
   ConvHist_file                  = nullptr;
   iteration_container            = nullptr;
+  iteration_container_PT         = nullptr;
   output_container               = nullptr;
+  output_container_PT            = nullptr;
   integration_container          = nullptr;
   geometry_container             = nullptr;
   solver_container               = nullptr;
@@ -336,6 +341,7 @@ void CDriver::SetContainers_Null(){
   /*--- Definition and of the containers for all possible zones. ---*/
 
   iteration_container            = new CIteration**[nZone];
+  iteration_container_PT         = new CIteration**[nZone];
   solver_container               = new CSolver****[nZone];
   integration_container          = new CIntegration***[nZone];
   numerics_container             = new CNumerics*****[nZone];
@@ -348,6 +354,7 @@ void CDriver::SetContainers_Null(){
   interface_container            = new CInterface**[nZone];
   interface_types                = new unsigned short*[nZone];
   output_container               = new COutput*[nZone];
+  output_container_PT            = new COutput*[nZone];
   nInst                          = new unsigned short[nZone];
   driver_config                  = nullptr;
   driver_output                  = nullptr;
@@ -365,8 +372,10 @@ void CDriver::SetContainers_Null(){
     interface_container[iZone]            = nullptr;
     interface_types[iZone]                = new unsigned short[nZone];
     output_container[iZone]               = nullptr;
+    output_container_PT[iZone]            = nullptr;
     nInst[iZone]                          = 1;
   }
+
 
   strcpy(runtime_file_name, "runtime.dat");
 
@@ -428,11 +437,15 @@ void CDriver::Postprocessing() {
   if (rank == MASTER_NODE) cout << "Deleted CSolver container." << endl;
 
   for (iZone = 0; iZone < nZone; iZone++) {
-    for (iInst = 0; iInst < nInst[iZone]; iInst++)
+    for (iInst = 0; iInst < nInst[iZone]; iInst++) {
       delete iteration_container[iZone][iInst];
+      delete iteration_container_PT[iZone][iInst];
+    }
     delete [] iteration_container[iZone];
+    delete [] iteration_container_PT[iZone];
   }
   delete [] iteration_container;
+  delete [] iteration_container_PT;
   if (rank == MASTER_NODE) cout << "Deleted CIteration container." << endl;
 
   if (interface_container != nullptr) {
@@ -522,6 +535,15 @@ void CDriver::Postprocessing() {
       }
     }
     delete [] output_container;
+  }
+
+  if (output_container_PT!= nullptr) {
+    for (iZone = 0; iZone < nZone; iZone++) {
+      if (output_container_PT[iZone] != nullptr) {
+        delete output_container_PT[iZone];
+      }
+    }
+    delete [] output_container_PT;
   }
 
 
@@ -1277,6 +1299,8 @@ void CDriver::Solver_Restart(CSolver ***solver, CGeometry **geometry,
 
   }
 
+  pt = config->GetEulerianPaticleTracking();
+
   /*--- Determine the kind of FEM solver used for the flow. ---*/
 
   switch( config->GetKind_FEM_Flow() ) {
@@ -1519,6 +1543,8 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
       pt = true; break;
 
   }
+
+  if (config->GetEulerianPaticleTracking()) pt = true;
 
   /*--- Assign turbulence model booleans ---*/
 
@@ -2193,39 +2219,60 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
     }
   }
 
-    /*--- Solver definition of the finite volume particle tracking solver  ---*/
-    if (pt) {
+  /*--- Solver definition of the finite volume particle tracking solver  ---*/
+  if (pt) {
 
-      /*--- Definition of the viscous scheme for each equation and mesh level ---*/
-      for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++) {
+    /*--- Definition of the viscous scheme for each equation and mesh level ---*/
+    for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++) {
 
-//        numerics[iMGlevel][PT_SOL][visc_term] = new CAvgGradCorrected_Heat(nDim, nVar_Heat, config);
-//        numerics[iMGlevel][PT_SOL][visc_bound_term] = new CAvgGrad_Heat(nDim, nVar_Heat, config);
+        numerics[iMGlevel][PT_SOL][visc_term] = new CAvgGradCorrected_PT(nDim, nVar_PT, config);
+        numerics[iMGlevel][PT_SOL][visc_bound_term] = new CAvgGradCorrected_PT(nDim, nVar_PT, config);
 
-        switch (config->GetKind_ConvNumScheme_PT()) {
+      switch (config->GetKind_ConvNumScheme_PT()) {
 
-          case SPACE_UPWIND :
-            numerics[iMGlevel][PT_SOL][conv_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
-            numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
-            break;
+        case SPACE_UPWIND :
+          switch (config->GetKind_Upwind_PT()) {
+            case GODUNOV_PT:
+              numerics[iMGlevel][PT_SOL][conv_term] = new CUpwGodunov_PT(nDim, nVar_PT, config);
+              numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwGodunov_PT(nDim, nVar_PT, config);
+              break;
+            case RUSANOV_PT:
+              numerics[iMGlevel][PT_SOL][conv_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
+              numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
+              break;
+            case FDS_PT:
+              numerics[iMGlevel][PT_SOL][conv_term] = new CUpwFDS_PT(nDim, nVar_PT, config);
+              numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwFDS_PT(nDim, nVar_PT, config);
+              break;
+            case SW_PT:
+              numerics[iMGlevel][PT_SOL][conv_term] = new CUpwStegWarm_PT(nDim, nVar_PT, config);
+              numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwStegWarm_PT(nDim, nVar_PT, config);
+              break;
+            default:
+              SU2_OMP_MASTER
+              SU2_MPI::Error("Invalid upwind scheme for the particle tracking equations.", CURRENT_FUNCTION);
+              break;
+          }
+          break;
 
-          case SPACE_CENTERED :
-//            numerics[iMGlevel][PT_SOL][conv_term] = new CCentSca_Heat(nDim, nVar_Heat, config);
-//            numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwSca_Heat(nDim, nVar_Heat, config);
-//            break;
+        case SPACE_CENTERED :
+          numerics[iMGlevel][PT_SOL][conv_term] = new CCent_PT(nDim, nVar_PT, config);
+          numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
+          break;
 
-          default:
-            SU2_OMP_MASTER
-            SU2_MPI::Error("Invalid convective scheme for the heat transfer equations.", CURRENT_FUNCTION);
-            break;
-        }
-
-        numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag(nDim, nVar_PT, config);
-        numerics[iMGlevel][PT_SOL][source_second_term] = new CSourceNothing(nDim, nVar_PT, config);
-
-
+        default:
+          SU2_OMP_MASTER
+          SU2_MPI::Error("Invalid convective scheme for the particle tracking equations.", CURRENT_FUNCTION);
+          break;
       }
+
+      numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag(nDim, nVar_PT, config);
+//      numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag(nDim, nVar_PT, config);
+      numerics[iMGlevel][PT_SOL][source_second_term] = new CSourcePTStagMMS(nDim, nVar_PT, config);
+
+
     }
+  }
 
   /*--- Solver definition for the radiation model problem ---*/
 
@@ -2516,17 +2563,20 @@ void CDriver::Numerics_Postprocessing(CNumerics *****numerics, CSolver***, CGeom
 
 }
 
-void CDriver::Iteration_Preprocessing(CConfig* config, CIteration *&iteration) const {
+void CDriver::Iteration_Preprocessing(CConfig* config, CIteration*& iteration, CIteration*& iteration_PT) const {
 
   if (rank == MASTER_NODE)
     cout << endl <<"------------------- Iteration Preprocessing ( Zone " << config->GetiZone() <<" ) ------------------" << endl;
 
   iteration = CIterationFactory::CreateIteration(static_cast<ENUM_MAIN_SOLVER>(config->GetKind_Solver()), config);
 
+  iteration_PT = CIterationFactory::CreateIteration(PARTICLE_TRACKING, config);
+
 }
 
-void CDriver::DynamicMesh_Preprocessing(CConfig *config, CGeometry **geometry, CSolver ***solver, CIteration* iteration,
-                                        CVolumetricMovement *&grid_movement, CSurfaceMovement *&surface_movement) const{
+void CDriver::DynamicMesh_Preprocessing(CConfig* config, CGeometry** geometry, CSolver*** solver, CIteration* iteration,
+                                        CVolumetricMovement*& grid_movement,
+                                        CSurfaceMovement*& surface_movement) const{
 
   /*--- Instantiate the geometry movement classes for the solution of unsteady
    flows on dynamic meshes, including rigid mesh transformations, dynamically
@@ -2782,7 +2832,8 @@ void CDriver::StaticMesh_Preprocessing(CConfig *config, CGeometry** geometry, CS
 
 }
 
-void CDriver::Output_Preprocessing(CConfig **config, CConfig *driver_config, COutput **&output, COutput *&driver_output){
+void CDriver::Output_Preprocessing(CConfig** config, CConfig* driver_config, COutput**& output, COutput*& driver_output,
+                                   COutput**& outputPT) {
 
   /*--- Definition of the output class (one for each zone). The output class
    manages the writing of all restart, volume solution, surface solution,
@@ -2802,6 +2853,15 @@ void CDriver::Output_Preprocessing(CConfig **config, CConfig *driver_config, COu
     output[iZone]->PreprocessHistoryOutput(config[iZone], !dry_run);
 
     output[iZone]->PreprocessVolumeOutput(config[iZone]);
+
+    if (config[iZone]->GetEulerianPaticleTracking()) {
+      outputPT[iZone] = COutputFactory::CreateOutput(PARTICLE_TRACKING, config[iZone], nDim);
+
+      /*--- If dry-run is used, do not open/overwrite history file. ---*/
+      outputPT[iZone]->PreprocessHistoryOutput(config[iZone], !dry_run);
+
+      outputPT[iZone]->PreprocessVolumeOutput(config[iZone]);
+    }
 
   }
 

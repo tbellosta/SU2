@@ -40,6 +40,11 @@ class CPTVariable final : public CVariable {
 
   CVectorOfMatrix& Gradient_Reconstruction;  /*!< \brief Reference to the gradient of the primitive variables for MUSCL reconstruction for the convective term */
   CVectorOfMatrix Gradient_Aux;              /*!< \brief Auxiliary structure to store a second gradient for reconstruction, if required. */
+  CVectorOfMatrix Gradient_Primitive;              /*!< \brief Auxiliary structure to store a second gradient for reconstruction, if required. */
+
+  MatrixType Primitive;                 /*!< \brief Primitives of the problem. */
+  MatrixType Secondary;
+  MatrixType Limiter_Primitive;
 
  public:
   /*!
@@ -94,6 +99,10 @@ class CPTVariable final : public CVariable {
    */
   inline CVectorOfMatrix& GetGradient_Reconstruction(void) final { return Gradient_Reconstruction; }
 
+
+  inline CVectorOfMatrix& GetGradient_Primitive(void) { return Gradient_Primitive; }
+  inline const CVectorOfMatrix& GetGradient_Primitive(void) const { return Gradient_Primitive; }
+
   /*!
    * \brief Get the projected velocity in a unitary vector direction (compressible solver).
    * \param[in] val_vector - Direction of projection.
@@ -102,11 +111,45 @@ class CPTVariable final : public CVariable {
   inline su2double GetProjVel(unsigned long iPoint, const su2double *val_vector) const final {
     su2double ProjVel = 0.0;
     for (unsigned long iDim = 0; iDim < nDim; iDim++)
-      ProjVel += Solution(iPoint,iDim+1)*val_vector[iDim]/(Solution(iPoint,0));
+      ProjVel += Primitive(iPoint,iDim+1)*val_vector[iDim];
     return ProjVel;
   }
 
-  inline su2double GetVelocity(unsigned long iPoint, unsigned long iDim) const final { return Solution(iPoint,iDim+1); }
+  inline su2double GetVelocity(unsigned long iPoint, unsigned long iDim) const final {return Primitive(iPoint,iDim+1); }
+
+
+  inline void SetPrimitive(unsigned long iPoint, unsigned long iVar, su2double val_prim) final {Primitive(iPoint,iVar) = val_prim;}
+  inline void SetPrimitive(unsigned long iPoint, const su2double *val_prim) final {
+    for(int iVar = 0; iVar < nVar; iVar++)
+      Primitive(iPoint,iVar) = val_prim[iVar];
+  }
+  inline su2double *GetPrimitive(unsigned long iPoint) final {return Primitive[iPoint]; }
+  inline su2double GetPrimitive(unsigned long iPoint, unsigned long iVar) const final {return Primitive(iPoint,iVar); }
+  inline const MatrixType& GetPrimitive(void) const { return Primitive; }
+  inline su2double *GetLimiter_Primitive(unsigned long iPoint) final { return Limiter_Primitive[iPoint]; }
+  inline MatrixType& GetLimiter_Primitive(void) {return Limiter_Primitive; }
+  inline const MatrixType& GetLimiter_Primitive(void) const {return Limiter_Primitive; }
+
+  inline su2double **GetGradient_Primitive(unsigned long iPoint) final { return Gradient_Primitive[iPoint]; }
+  inline su2double GetGradient_Primitive(unsigned long iPoint, unsigned long iVar, unsigned long iDim) const final { return Gradient_Primitive(iPoint,iVar,iDim); }
+
+
+  inline su2double GetSecondary(unsigned long iPoint, unsigned long iVar) const final { return Secondary(iPoint,iVar); }
+
+  /*!
+   * \brief A virtual member.
+   */
+  inline void SetSecondary(unsigned long iPoint, unsigned long iVar, su2double val_secondary) final {Secondary(iPoint,iVar) = val_secondary;}
+
+  /*!
+   * \brief A virtual member.
+   */
+  inline void SetSecondary(unsigned long iPoint, const su2double *val_secondary) final {
+    for (int iVar = 0; iVar < nSecondaryVar; ++iVar)
+      Secondary(iPoint,iVar) = val_secondary[iVar];
+  }
+
+  inline su2double *GetSecondary(unsigned long iPoint) final { return Secondary[iPoint]; }
 
 
 };

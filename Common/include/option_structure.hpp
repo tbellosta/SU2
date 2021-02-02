@@ -759,7 +759,8 @@ enum ENUM_CENTERED {
   JST = 1,            /*!< \brief Jameson-Smith-Turkel centered numerical method. */
   LAX = 2,            /*!< \brief Lax-Friedrich centered numerical method. */
   JST_MAT = 3,        /*!< \brief JST with matrix dissipation. */
-  JST_KE = 4          /*!< \brief Kinetic Energy preserving Jameson-Smith-Turkel centered numerical method. */
+  JST_KE = 4,          /*!< \brief Kinetic Energy preserving Jameson-Smith-Turkel centered numerical method. */
+  JST_PT
 };
 static const MapType<string, ENUM_CENTERED> Centered_Map = {
   MakePair("NONE", NO_CENTERED)
@@ -767,6 +768,7 @@ static const MapType<string, ENUM_CENTERED> Centered_Map = {
   MakePair("JST_KE", JST_KE)
   MakePair("JST_MAT", JST_MAT)
   MakePair("LAX-FRIEDRICH", LAX)
+  MakePair("CENTERED-PT", JST_PT)
 };
 
 
@@ -793,7 +795,11 @@ enum ENUM_UPWIND {
   LAX_FRIEDRICH = 15,         /*!< \brief Lax-Friedrich numerical method. */
   AUSMPLUSUP = 16,            /*!< \brief AUSM+ -up numerical method (All Speed) */
   AUSMPLUSUP2 = 17,            /*!< \brief AUSM+ -up2 numerical method (All Speed) */
-  AUSMPWPLUS = 18            /*!< \brief AUSMplus numerical method. (MAYBE for TNE2 ONLY)*/
+  AUSMPWPLUS = 18,            /*!< \brief AUSMplus numerical method. (MAYBE for TNE2 ONLY)*/
+  RUSANOV_PT = 19,
+  GODUNOV_PT = 20,
+  FDS_PT = 21,
+  SW_PT= 22
 };
 static const MapType<string, ENUM_UPWIND> Upwind_Map = {
   MakePair("NONE", NO_UPWIND)
@@ -815,6 +821,10 @@ static const MapType<string, ENUM_UPWIND> Upwind_Map = {
   MakePair("SLAU2", SLAU2)
   MakePair("FDS", FDS)
   MakePair("LAX-FRIEDRICH", LAX_FRIEDRICH)
+  MakePair("GODUNOV", GODUNOV_PT)
+  MakePair("RUSANOV", RUSANOV_PT)
+  MakePair("FDSJ", FDS_PT)
+  MakePair("STEGWARM", SW_PT)
 };
 
 /*!

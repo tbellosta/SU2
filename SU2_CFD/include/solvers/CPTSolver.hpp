@@ -30,6 +30,9 @@
 #include "CSolver.hpp"
 #include "../variables/CPTVariable.hpp"
 #include "../../../Common/include/toolboxes/geometry_toolbox.hpp"
+#include "../gradients/computeGradientsGreenGauss.hpp"
+#include "../gradients/computeGradientsLeastSquares.hpp"
+#include "../limiters/computeLimiters.hpp"
 
 /*!
  * \class CPTSolver
@@ -54,6 +57,27 @@ class CPTSolver final : public CSolver {
    * \brief Return nodes to allow CSolver::base_nodes to be set.
    */
   inline CVariable* GetBaseClassPointerToNodes() override { return nodes; }
+
+  void clipSolution(void);
+  void SetPrimitiveVariables(CGeometry *geometry, CConfig *config);
+
+  void SetCentered_Dissipation_Sensor(CGeometry *geometry, const CConfig *config);
+
+  void SetMax_Eigenvalue(CGeometry *geometry, CConfig *config);
+
+  su2double computeRelaxationTime(CSolver** solver_container, unsigned long iPoint);
+
+  inline su2double uEx(su2double* coord) {
+    return 7*coord[0]; //cos(coord[1])*sin(coord[0]) + 10;
+  }
+
+  inline su2double vEx(su2double* coord) {
+    return -7*coord[1]; //cos(coord[0])*sin(coord[1]) + 10;
+  }
+
+  inline su2double aEx(su2double* coord) {
+    return exp(coord[0] + coord[1])/100;
+  }
 
  public:
 
@@ -175,70 +199,6 @@ class CPTSolver final : public CSolver {
                        unsigned short iMesh) override;
 
 
-  /*!
-   * \brief Impose the Navier-Stokes boundary condition (strong).
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] solver_container - Container vector with all the solutions.
-   * \param[in] conv_numerics - Description of the numerical method.
-   * \param[in] visc_numerics - Description of the numerical method.
-   * \param[in] config - Definition of the particular problem.
-   * \param[in] val_marker - Surface marker where the boundary condition is applied.
-   */
-  void BC_Isothermal_Wall(CGeometry *geometry,
-                          CSolver **solver_container,
-                          CNumerics *conv_numerics,
-                          CNumerics *visc_numerics,
-                          CConfig *config,
-                          unsigned short val_marker) override;
-
-  /*!
-   * \brief Impose a constant heat-flux condition at the wall.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] solver_container - Container vector with all the solutions.
-   * \param[in] conv_numerics - Description of the numerical method.
-   * \param[in] visc_numerics - Description of the numerical method.
-   * \param[in] config - Definition of the particular problem.
-   * \param[in] val_marker - Surface marker where the boundary condition is applied.
-   */
-//  void BC_HeatFlux_Wall(CGeometry *geometry,
-//                        CSolver **solver_container,
-//                        CNumerics *conv_numerics,
-//                        CNumerics *visc_numerics,
-//                        CConfig *config,
-//                        unsigned short val_marker) override;
-
-  /*!
-   * \brief Impose the inlet boundary condition.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] solver_container - Container vector with all the solutions.
-   * \param[in] conv_numerics - Description of the numerical method.
-   * \param[in] visc_numerics - Description of the numerical method.
-   * \param[in] config - Definition of the particular problem.
-   * \param[in] val_marker - Surface marker where the boundary condition is applied.
-   */
-  void BC_Inlet(CGeometry *geometry,
-                CSolver **solver_container,
-                CNumerics *conv_numerics,
-                CNumerics *visc_numerics,
-                CConfig *config,
-                unsigned short val_marker) override;
-  /*!
-   * \brief Impose the outlet boundary condition.
-   * \param[in] geometry - Geometrical definition of the problem.
-   * \param[in] solver_container - Container vector with all the solutions.
-   * \param[in] conv_numerics - Description of the numerical method.
-   * \param[in] visc_numerics - Description of the numerical method.
-   * \param[in] config - Definition of the particular problem.
-   * \param[in] val_marker - Surface marker where the boundary condition is applied.
-   */
-  void BC_Outlet(CGeometry *geometry,
-                 CSolver **solver_container,
-                 CNumerics *conv_numerics,
-                 CNumerics *visc_numerics,
-                 CConfig *config,
-                 unsigned short val_marker) override;
-
-  void BC_Periodic(CGeometry *geometry, CSolver **solver_container, CNumerics *numerics, CConfig *config) override;
 
 
   /*!
@@ -303,6 +263,7 @@ class CPTSolver final : public CSolver {
                             unsigned short iMesh,
                             unsigned short RunTime_EqSystem) override;
 
+
   void BC_Far_Field(CGeometry *geometry,
                     CSolver **solver_container,
                     CNumerics *conv_numerics,
@@ -317,6 +278,13 @@ class CPTSolver final : public CSolver {
                     CConfig *config,
                     unsigned short val_marker) final;
 
+  void BC_Euler_Wall(CGeometry *geometry,
+                        CSolver **solver_container,
+                        CNumerics *conv_numerics,
+                        CNumerics *visc_numerics,
+                        CConfig *config,
+                        unsigned short val_marker) final;
+
   inline su2double GetCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const final {
     return CollectionEfficiency[val_marker][val_vertex];
   }
@@ -325,6 +293,55 @@ class CPTSolver final : public CSolver {
                                    CSolver **solver_container,
                                    CConfig *config,
                                    unsigned short iMesh);
+
+
+  inline void SetPrimitive_Gradient_GG(CGeometry *geometry,
+                                               const CConfig *config,
+                                               bool reconstruction = false) final {
+
+    const auto& primitives = nodes->GetPrimitive();
+    auto& gradient = reconstruction ? nodes->GetGradient_Reconstruction() : nodes->GetGradient_Primitive();
+
+    computeGradientsGreenGauss(this, PRIMITIVE_GRADIENT, PERIODIC_PRIM_GG, *geometry, *config, primitives, 0,
+                               nPrimVar, gradient);
+
+  }
+
+  inline void SetPrimitive_Gradient_LS(CGeometry *geometry,
+                                       const CConfig *config,
+                                       bool reconstruction = false) final {
+
+    /*--- Set a flag for unweighted or weighted least-squares. ---*/
+    bool weighted;
+
+    if (reconstruction)
+      weighted = (config->GetKind_Gradient_Method_Recon() == WEIGHTED_LEAST_SQUARES);
+    else
+      weighted = (config->GetKind_Gradient_Method() == WEIGHTED_LEAST_SQUARES);
+
+    const auto& primitives = nodes->GetPrimitive();
+    auto& rmatrix = nodes->GetRmatrix();
+    auto& gradient = reconstruction ? nodes->GetGradient_Reconstruction() : nodes->GetGradient_Primitive();
+    PERIODIC_QUANTITIES kindPeriodicComm = weighted ? PERIODIC_PRIM_LS : PERIODIC_PRIM_ULS;
+
+    computeGradientsLeastSquares(this, PRIMITIVE_GRADIENT, kindPeriodicComm, *geometry, *config, weighted, primitives, 0,
+                                 nPrimVar, gradient, rmatrix);
+
+  }
+
+  inline void SetPrimitive_Limiter(CGeometry *geometry, const CConfig *config) final {
+
+    auto kindLimiter = static_cast<ENUM_LIMITER>(config->GetKind_SlopeLimit_PT());
+    const auto& primitives = nodes->GetPrimitive();
+    const auto& gradient = nodes->GetGradient_Reconstruction();
+    auto& primMin = nodes->GetSolution_Min();
+    auto& primMax = nodes->GetSolution_Max();
+    auto& limiter = nodes->GetLimiter_Primitive();
+
+    computeLimiters(kindLimiter, this, PRIMITIVE_LIMITER, PERIODIC_LIM_PRIM_1, PERIODIC_LIM_PRIM_2, *geometry, *config, 0,
+                    nPrimVar, primitives, gradient, primMin, primMax, limiter);
+
+  }
 
 
 };

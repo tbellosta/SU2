@@ -229,6 +229,8 @@ protected:
   su2double **A_ij, **newA_ij, **Eig_Vec, **New_Eig_Vec, **Corners;
   su2double *Eig_Val, *Barycentric_Coord, *New_Coord;
 
+  su2double ParticleRelaxationTime;
+
 public:
   /*!
    * \brief Return type used in some "ComputeResidual" overloads to give a
@@ -1390,6 +1392,9 @@ public:
   virtual inline void SetEve(su2double *val_Eve_i, su2double *val_Eve_j)          { }
 
   virtual inline void SetCvve(su2double *val_Cvve_i, su2double *val_Cvve_j)       { }
+
+  inline void SetParticleTau(su2double tau) {ParticleRelaxationTime = tau;}
+  inline su2double GetParticleTau() {return ParticleRelaxationTime;}
 
 };
 

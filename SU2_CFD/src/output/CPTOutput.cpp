@@ -38,13 +38,13 @@ CPTOutput::CPTOutput(CConfig *config, unsigned short nDim) : COutput(config, nDi
 
   if (nRequestedHistoryFields == 0){
     requestedHistoryFields.emplace_back("ITER");
-    requestedHistoryFields.emplace_back("RMS_RES");
+    requestedHistoryFields.emplace_back("RMS_ALPHA");
     nRequestedHistoryFields = requestedHistoryFields.size();
   }
   if (nRequestedScreenFields == 0){
     requestedScreenFields.emplace_back("OUTER_ITER");
     requestedScreenFields.emplace_back("INNER_ITER");
-    requestedScreenFields.emplace_back("RMS_DENSITY");
+    requestedScreenFields.emplace_back("RMS_ALPHA");
     nRequestedScreenFields = requestedScreenFields.size();
   }
   if (nRequestedVolumeFields == 0){
@@ -59,19 +59,20 @@ CPTOutput::CPTOutput(CConfig *config, unsigned short nDim) : COutput(config, nDi
 
   /*--- Set the volume filename --- */
 
-  volumeFilename = config->GetVolume_FileName();
-
+  volumeFilename = config->GetVolume_FileName_PT();
   /*--- Set the surface filename --- */
 
-  surfaceFilename = config->GetSurfCoeff_FileName();
+  surfaceFilename = config->GetSurfCoeff_FileName_PT();
 
   /*--- Set the restart filename --- */
 
-  restartFilename = config->GetRestart_FileName();
+  restartFilename = config->GetRestart_FileName_PT();
 
   /*--- Set the default convergence field --- */
 
-  if (convFields.empty() ) convFields.emplace_back("RMS_DENSITY");
+  if (convFields.empty() ) convFields.emplace_back("RMS_ALPHA");
+
+  minLogResidual = config->GetMinLogResidual_PT();
 
 
 }
@@ -82,15 +83,15 @@ void CPTOutput::LoadHistoryData(CConfig *config, CGeometry *geometry, CSolver **
 
   CSolver* PT_solver = solver[PT_SOL];
 
-  SetHistoryOutputValue("RMS_DENSITY", log10(PT_solver->GetRes_RMS(0)));
-  SetHistoryOutputValue("RMS_MOMENTUM-X", log10(PT_solver->GetRes_RMS(1)));
-  SetHistoryOutputValue("RMS_MOMENTUM-Y", log10(PT_solver->GetRes_RMS(2)));
-  if (nDim == 3) SetHistoryOutputValue("RMS_MOMENTUM-Z", log10(PT_solver->GetRes_RMS(3)));
+  SetHistoryOutputValue("RMS_ALPHA", log10(PT_solver->GetRes_RMS(0)));
+  SetHistoryOutputValue("RMS_ALPHA-U", log10(PT_solver->GetRes_RMS(1)));
+  SetHistoryOutputValue("RMS_ALPHA-V", log10(PT_solver->GetRes_RMS(2)));
+  if (nDim == 3) SetHistoryOutputValue("RMS_ALPHA-W", log10(PT_solver->GetRes_RMS(3)));
 
-  SetHistoryOutputValue("MAX_DENSITY", log10(PT_solver->GetRes_Max(0)));
-  SetHistoryOutputValue("MAX_MOMENTUM-X", log10(PT_solver->GetRes_Max(1)));
-  SetHistoryOutputValue("MAX_MOMENTUM-Y", log10(PT_solver->GetRes_Max(2)));
-  if (nDim == 3) SetHistoryOutputValue("MAX_MOMENTUM-Z", log10(PT_solver->GetRes_Max(3)));
+  SetHistoryOutputValue("MAX_ALPHA", log10(PT_solver->GetRes_Max(0)));
+  SetHistoryOutputValue("MAX_ALPHA-U", log10(PT_solver->GetRes_Max(1)));
+  SetHistoryOutputValue("MAX_ALPHA-V", log10(PT_solver->GetRes_Max(2)));
+  if (nDim == 3) SetHistoryOutputValue("MAX_ALPHA-W", log10(PT_solver->GetRes_Max(3)));
 
 
   SetHistoryOutputValue("LINSOL_ITER", PT_solver->GetIterLinSolver());
@@ -105,15 +106,15 @@ void CPTOutput::SetHistoryOutputFields(CConfig *config){
   AddHistoryOutput("LINSOL_ITER", "LinSolIter", ScreenOutputFormat::INTEGER, "LINSOL", "Number of iterations of the linear solver.");
   AddHistoryOutput("LINSOL_RESIDUAL", "LinSolRes", ScreenOutputFormat::FIXED, "LINSOL", "Residual of the linear solver.");
 
-  AddHistoryOutput("RMS_DENSITY", "rms[alpha]", ScreenOutputFormat::FIXED, "RMS_RES", "Root mean square residual of the volume fraction", HistoryFieldType::RESIDUAL);
-  AddHistoryOutput("RMS_MOMENTUM-X", "rms[alpha*u]", ScreenOutputFormat::FIXED, "RMS_RES", "Root mean square residual of the momentum", HistoryFieldType::RESIDUAL);
-  AddHistoryOutput("RMS_MOMENTUM-Y", "rms[alpha*v]", ScreenOutputFormat::FIXED, "RMS_RES", "Root mean square residual of the momentum", HistoryFieldType::RESIDUAL);
-  if (nDim == 3) AddHistoryOutput("RMS_MOMENTUM-Z", "rms[alpha*w]", ScreenOutputFormat::FIXED, "RMS_RES", "Root mean square residual of the momentum", HistoryFieldType::RESIDUAL);
+  AddHistoryOutput("RMS_ALPHA", "rms[alpha]", ScreenOutputFormat::FIXED, "RMS_RES", "Root mean square residual of the volume fraction", HistoryFieldType::RESIDUAL);
+  AddHistoryOutput("RMS_ALPHA-U", "rms[alpha*u]", ScreenOutputFormat::FIXED, "RMS_RES", "Root mean square residual of the momentum", HistoryFieldType::RESIDUAL);
+  AddHistoryOutput("RMS_ALPHA-V", "rms[alpha*v]", ScreenOutputFormat::FIXED, "RMS_RES", "Root mean square residual of the momentum", HistoryFieldType::RESIDUAL);
+  if (nDim == 3) AddHistoryOutput("RMS_ALPHA-W", "rms[alpha*w]", ScreenOutputFormat::FIXED, "RMS_RES", "Root mean square residual of the momentum", HistoryFieldType::RESIDUAL);
 
-  AddHistoryOutput("MAX_DENSITY", "max[alpha]", ScreenOutputFormat::FIXED, "MAX_RES", "Max residual of the volume fraction", HistoryFieldType::RESIDUAL);
-  AddHistoryOutput("MAX_MOMENTUM-X", "max[alpha*u]", ScreenOutputFormat::FIXED, "MAX_RES", "Max residual of the momentum", HistoryFieldType::RESIDUAL);
-  AddHistoryOutput("MAX_MOMENTUM-Y", "max[alpha*v]", ScreenOutputFormat::FIXED, "MAX_RES", "Max residual of the momentum", HistoryFieldType::RESIDUAL);
-  if (nDim == 3) AddHistoryOutput("MAX_MOMENTUM-Z", "max[alpha*w]", ScreenOutputFormat::FIXED, "MAX_RES", "Max residual of the momentum", HistoryFieldType::RESIDUAL);
+  AddHistoryOutput("MAX_ALPHA", "max[alpha]", ScreenOutputFormat::FIXED, "MAX_RES", "Max residual of the volume fraction", HistoryFieldType::RESIDUAL);
+  AddHistoryOutput("MAX_ALPHA-U", "max[alpha*u]", ScreenOutputFormat::FIXED, "MAX_RES", "Max residual of the momentum", HistoryFieldType::RESIDUAL);
+  AddHistoryOutput("MAX_ALPHA-V", "max[alpha*v]", ScreenOutputFormat::FIXED, "MAX_RES", "Max residual of the momentum", HistoryFieldType::RESIDUAL);
+  if (nDim == 3) AddHistoryOutput("MAX_ALPHA-W", "max[alpha*w]", ScreenOutputFormat::FIXED, "MAX_RES", "Max residual of the momentum", HistoryFieldType::RESIDUAL);
 
   AddHistoryOutput("CFL_NUMBER", "CFL number", ScreenOutputFormat::SCIENTIFIC, "CFL_NUMBER", "Current value of the CFL number");
 
@@ -129,19 +130,22 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
     AddVolumeOutput("COORD-Z", "z", "COORDINATES","z-component of the coordinate vector");
 
   // SOLUTION
-  AddVolumeOutput("DENSITY", "alpha", "SOLUTION", "Volume fraction");
-  AddVolumeOutput("MOMENTUM-X", "alphaU", "SOLUTION", "Momentum-X");
-  AddVolumeOutput("MOMENTUM-Y", "alphaV", "SOLUTION", "Momentum-Y");
-  if (nDim == 3) AddVolumeOutput("MOMENTUM-Z", "alphaW", "SOLUTION", "Momentum-Z");
+  AddVolumeOutput("ALPHA", "alpha", "SOLUTION", "Volume fraction");
+  AddVolumeOutput("ALPHA-U", "alphaU", "SOLUTION", "Momentum-X");
+  AddVolumeOutput("ALPHA-V", "alphaV", "SOLUTION", "Momentum-Y");
+  if (nDim == 3) AddVolumeOutput("ALPHA-W", "alphaW", "SOLUTION", "Momentum-Z");
 
-//  // Primitives
-//  AddVolumeOutput("HEAT_FLUX", "Heat_Flux", "PRIMITIVE", "Heatflux");
+  // PRIMITIVES
+  AddVolumeOutput("PART-U", "Up", "PRIMITIVE", "Velocity-X");
+  AddVolumeOutput("PART-V", "Vp", "PRIMITIVE", "Velocity-Y");
+  AddVolumeOutput("PART-RE", "Re", "PRIMITIVE", "Reynolds-P");
+  if (nDim == 3) AddVolumeOutput("PART-W", "Wp", "PRIMITIVE", "Velocity-Z");
 
   // Residuals
-  AddVolumeOutput("RES_DENSITY", "Residual_alpha", "RESIDUAL", "Residual of the volume fraction");
-  AddVolumeOutput("RES_MOMENTUM-X", "Residual_alphaU", "RESIDUAL", "Residual of the MOMENTUM-X");
-  AddVolumeOutput("RES_MOMENTUM-Y", "Residual_alphaV", "RESIDUAL", "Residual of the MOMENTUM-Y");
-  if (nDim == 3) AddVolumeOutput("RES_MOMENTUM-Z", "Residual_alphaW", "RESIDUAL", "Residual of the MOMENTUM-Z");
+  AddVolumeOutput("RES_ALPHA", "Residual_alpha", "RESIDUAL", "Residual of the volume fraction");
+  AddVolumeOutput("RES_ALPHA-U", "Residual_alphaU", "RESIDUAL", "Residual of the MOMENTUM-X");
+  AddVolumeOutput("RES_ALPHA-V", "Residual_alphaV", "RESIDUAL", "Residual of the MOMENTUM-Y");
+  if (nDim == 3) AddVolumeOutput("RES_ALPHA-W", "Residual_alphaW", "RESIDUAL", "Residual of the MOMENTUM-Z");
 
   // Mesh quality metrics, computed in CPhysicalGeometry::ComputeMeshQualityStatistics.
   AddVolumeOutput("ORTHOGONALITY", "Orthogonality", "MESH_QUALITY", "Orthogonality Angle (deg.)");
@@ -150,12 +154,16 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
 
   AddVolumeOutput("BETA", "CollEff", "SOLUTION", "Collection Efficiency");
 
+  if (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED)
+  AddVolumeOutput("SENSOR", "Sensor", "SOLUTION", "Sensor");
+
 }
 
 
 void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint){
 
   CVariable* Node_PT = solver[PT_SOL]->GetNodes();
+  CVariable* Node_Flow = solver[FLOW_SOL]->GetNodes();
   CPoint*    Node_Geo  = geometry->nodes;
 
   // Grid coordinates
@@ -165,16 +173,23 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
     SetVolumeOutputValue("COORD-Z", iPoint, Node_Geo->GetCoord(iPoint, 2));
 
   // SOLUTION
-  SetVolumeOutputValue("DENSITY", iPoint, Node_PT->GetSolution(iPoint, 0));
-  SetVolumeOutputValue("MOMENTUM-X", iPoint, Node_PT->GetSolution(iPoint, 1));
-  SetVolumeOutputValue("MOMENTUM-Y", iPoint, Node_PT->GetSolution(iPoint, 2));
-  if (nDim == 3) SetVolumeOutputValue("MOMENTUM-Z", iPoint, Node_PT->GetSolution(iPoint, 3));
+  SetVolumeOutputValue("ALPHA", iPoint, Node_PT->GetSolution(iPoint, 0));
+  SetVolumeOutputValue("ALPHA-U", iPoint, Node_PT->GetSolution(iPoint, 1));
+  SetVolumeOutputValue("ALPHA-V", iPoint, Node_PT->GetSolution(iPoint, 2));
+  if (nDim == 3) SetVolumeOutputValue("ALPHA-W", iPoint, Node_PT->GetSolution(iPoint, 3));
+
+  // PRIMITIVES
+  SetVolumeOutputValue("PART-U", iPoint, Node_PT->GetPrimitive(iPoint, 1));
+  SetVolumeOutputValue("PART-V", iPoint, Node_PT->GetPrimitive(iPoint, 2));
+  if (nDim == 3) SetVolumeOutputValue("PART-W", iPoint, Node_PT->GetPrimitive(iPoint, 3));
 
   // Residuals
-  SetVolumeOutputValue("RES_DENSITY", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 0));
-  SetVolumeOutputValue("RES_MOMENTUM-X", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 1));
-  SetVolumeOutputValue("RES_MOMENTUM-Y", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 2));
-  if (nDim == 3) SetVolumeOutputValue("RES_MOMENTUM-Z", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 3));
+  SetVolumeOutputValue("RES_ALPHA", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 0));
+  SetVolumeOutputValue("RES_ALPHA-U", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 1));
+  SetVolumeOutputValue("RES_ALPHA-V", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 2));
+//  SetVolumeOutputValue("RES_ALPHA-U", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,0));
+//  SetVolumeOutputValue("RES_ALPHA-V", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,1));
+  if (nDim == 3) SetVolumeOutputValue("RES_ALPHA-W", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 3));
 
   // Mesh quality metrics
   if (config->GetWrt_MeshQuality()) {
@@ -182,6 +197,27 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
     SetVolumeOutputValue("ASPECT_RATIO",  iPoint, geometry->Aspect_Ratio[iPoint]);
     SetVolumeOutputValue("VOLUME_RATIO",  iPoint, geometry->Volume_Ratio[iPoint]);
   }
+
+  const su2double rho = 1000;
+  const su2double sigma = 0.0756;
+//  const su2double d = config->GetParticle_Size();
+  const su2double d = 2e-5;
+  su2double mu = 18.03e-6;
+
+  su2double *uFlow = &Node_Flow->GetPrimitive(iPoint)[1], rhoFlow = Node_Flow->GetPrimitive(iPoint)[nDim+2];
+
+  su2double V_mag = 0.0;
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    V_mag += pow(uFlow[iDim]-Node_PT->GetPrimitive(iPoint,iDim+1),2);
+  }
+
+  su2double Re = rhoFlow*d*V_mag / mu;
+
+  SetVolumeOutputValue("PART-RE", iPoint, Re);
+
+  if (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED)
+  SetVolumeOutputValue("SENSOR",  iPoint, Node_PT->GetSensor(iPoint));
+
 
 }
 

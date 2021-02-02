@@ -229,6 +229,8 @@ void CIntegration::SetDualTime_Solver(CGeometry *geometry, CSolver *solver, CCon
   solver->ResetCFLAdapt();
   SU2_OMP_BARRIER
 
+  su2double cfl = (solver->GetSolverName() == "PT") ? config->GetCFL_PT() : config->GetCFL(iMesh);
+
   SU2_OMP_FOR_STAT(roundUpDiv(geometry->GetnPoint(), omp_get_num_threads()))
   for (auto iPoint = 0ul; iPoint < geometry->GetnPoint(); iPoint++) {
 
@@ -236,7 +238,7 @@ void CIntegration::SetDualTime_Solver(CGeometry *geometry, CSolver *solver, CCon
     solver->GetNodes()->SetUnderRelaxation(iPoint, 1.0);
 
     /*--- Initialize the local CFL number ---*/
-    solver->GetNodes()->SetLocalCFL(iPoint, config->GetCFL(iMesh));
+    solver->GetNodes()->SetLocalCFL(iPoint, cfl);
   }
 
   /*--- Store old aeroelastic solutions ---*/

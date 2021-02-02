@@ -117,9 +117,10 @@ CIteration* CIterationFactory::CreateIteration(ENUM_MAIN_SOLVER kindSolver, cons
       SU2_MPI::Error("No iteration found for specified solver.", CURRENT_FUNCTION);
       break;
     case PARTICLE_TRACKING:
-      if (rank == MASTER_NODE)
-        cout << "Particle tracking iteration." << endl;
-      iteration = new CPTIteration(config);
+      if (config->GetEulerianPaticleTracking()) {
+        if (rank == MASTER_NODE) cout << "Particle tracking iteration." << endl;
+        iteration = new CPTIteration(config);
+      }
       break;
   }
 

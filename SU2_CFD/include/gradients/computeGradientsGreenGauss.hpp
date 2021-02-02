@@ -182,7 +182,6 @@ void computeGradientsGreenGauss(CSolver* solver,
 
 }
 } // end namespace
-
 /*!
  * \brief Instantiations for 2D and 3D.
  */

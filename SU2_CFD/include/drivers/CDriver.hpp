@@ -83,7 +83,9 @@ protected:
        fsi,                                     /*!< \brief FSI simulation flag.*/
        fem_solver;                              /*!< \brief FEM fluid solver simulation flag. */
   CIteration ***iteration_container;            /*!< \brief Container vector with all the iteration methods. */
+  CIteration ***iteration_container_PT;            /*!< \brief Container vector with all the iteration methods. */
   COutput **output_container;                   /*!< \brief Pointer to the COutput class. */
+  COutput **output_container_PT;                   /*!< \brief Pointer to the COutput class. */
   CIntegration ****integration_container;       /*!< \brief Container vector with all the integration methods. */
   CGeometry ****geometry_container;             /*!< \brief Geometrical definition of the problem. */
   CSolver *****solver_container;                /*!< \brief Container vector with all the solutions. */
@@ -159,7 +161,7 @@ protected:
    * \param[in] config - Definition of the particular problem.
    * \param[in] iZone - Index of the zone.
    */
-  void Iteration_Preprocessing(CConfig *config, CIteration *&iteration) const;
+  void Iteration_Preprocessing(CConfig* config, CIteration*& iteration, CIteration*& iteration_PT) const;
 
   /*!
    * \brief Definition and allocation of all solution classes.
@@ -235,7 +237,8 @@ protected:
    * \param grid_movement
    * \param surface_movement
    */
-  void DynamicMesh_Preprocessing(CConfig *config, CGeometry **geometry, CSolver ***solver, CIteration *iteration, CVolumetricMovement *&grid_movement, CSurfaceMovement *&surface_movement) const;
+  void DynamicMesh_Preprocessing(CConfig* config, CGeometry** geometry, CSolver*** solver, CIteration* iteration,
+                                 CVolumetricMovement*& grid_movement, CSurfaceMovement*& surface_movement) const;
 
   /*!
    * \brief Initialize Python interface functionalities
@@ -245,7 +248,8 @@ protected:
   /*!
    * \brief Preprocess the output container.
    */
-  void Output_Preprocessing(CConfig **config, CConfig *driver_config, COutput **&output_container, COutput *&driver_output);
+  void Output_Preprocessing(CConfig** config, CConfig* driver_config, COutput**& output, COutput*& driver_output,
+                            COutput**& outputPT);
 
   /*!
    * \brief Initiate value for static mesh movement such as the gridVel for the ROTATING frame.

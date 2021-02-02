@@ -109,6 +109,7 @@ int main(int argc, char *argv[]) {
   bool disc_adj = config->GetDiscrete_Adjoint();
   bool multizone = config->GetMultizone_Problem();
   bool harmonic_balance = (config->GetTime_Marching() == HARMONIC_BALANCE);
+  bool particleTracking = config->GetEulerianPaticleTracking();
 
   if (dry_run) {
 
@@ -126,7 +127,8 @@ int main(int argc, char *argv[]) {
       driver = new CDiscAdjSinglezoneDriver(config_file_name, nZone, MPICommunicator);
     }
     else {
-      driver = new CSinglezoneDriver(config_file_name, nZone, MPICommunicator);
+      if (!particleTracking) driver = new CSinglezoneDriver(config_file_name, nZone, MPICommunicator);
+      else driver = new CPTDriver(config_file_name, nZone, MPICommunicator);
     }
 
   }
