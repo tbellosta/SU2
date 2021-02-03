@@ -1425,26 +1425,25 @@ void CPTSolver::Source_Residual(CGeometry* geometry, CSolver** solver_container,
 
   /*--- Loop over all points. ---*/
   for (unsigned long iPoint = 0; iPoint < nPointDomain; iPoint++) {
-    numerics->SetConservative(nodes->GetPrimitive(iPoint), nullptr);
 
-    /*--- Set volume ---*/
+//    numerics->SetConservative(nodes->GetPrimitive(iPoint), nullptr);
 
-    numerics->SetPrimitive(flowNodes->GetPrimitive(iPoint), nullptr);
+//    numerics->SetPrimitive(flowNodes->GetPrimitive(iPoint), nullptr);
 
-    tau = computeRelaxationTime(solver_container, iPoint);
-    numerics->SetParticleTau(tau);
+//    tau = computeRelaxationTime(solver_container, iPoint);
+//    numerics->SetParticleTau(tau);
 
-    numerics->SetVolume(geometry->nodes->GetVolume(iPoint));
+//    numerics->SetVolume(geometry->nodes->GetVolume(iPoint));
 
     /*--- Compute the source term ---*/
 
-    numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
+//    numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
 
     /*--- Subtract residual and the Jacobian ---*/
 
-    LinSysRes.SubtractBlock(iPoint, Residual);
-
-    Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
+//    LinSysRes.SubtractBlock(iPoint, Residual);
+//
+//    Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
 
     /*-- MMS source term --*/
 
@@ -1552,12 +1551,12 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
         ProjVelocity_i -= GeometryToolbox::DotProduct(nDim, geometry->nodes->GetGridVel(iPoint), UnitNormal);
       }
 
-
-      if (ProjVelocity_i > 0) {
+      if (ProjVelocity_i >= 0) {
 //        V_reflected[0] = -V_domain[0];
         for (iDim = 0; iDim < nDim; iDim++)
           V_reflected[iDim + 1] = nodes->GetPrimitive(iPoint, iDim + 1) - 2.0 * ProjVelocity_i * UnitNormal[iDim];
       }
+
       /*--- Set Primitive and Secondary for numerics class. ---*/
       conv_numerics->SetPrimitive(V_domain, V_reflected);
 
@@ -1861,7 +1860,7 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
   su2double *uFlow = &FlowPrim[1], rhoFlow = FlowPrim[nDim+2];
 
   rhoFlow = 1.2;
-  su2double Uf[2] = {10.0, 0.0};
+  su2double Uf[2] = {4.0, 0.0};
 
   uFlow = Uf;
 

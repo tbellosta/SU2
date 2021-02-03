@@ -2268,7 +2268,7 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
 
       numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag(nDim, nVar_PT, config);
 //      numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag(nDim, nVar_PT, config);
-      numerics[iMGlevel][PT_SOL][source_second_term] = new CSourcePTStagMMS(nDim, nVar_PT, config);
+      numerics[iMGlevel][PT_SOL][source_second_term] = new CSourcePGDMMS(nDim, nVar_PT, config);
 
 
     }

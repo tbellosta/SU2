@@ -43,11 +43,9 @@
 class CPTSolver final : public CSolver {
  protected:
   unsigned short nVarFlow, nMarker, CurrentMesh;
-  su2double **HeatFlux, *HeatFlux_per_Marker, *Surface_HF, Total_HeatFlux, AllBound_HeatFlux,
-      *AverageT_per_Marker, Total_AverageT, AllBound_AverageT,
-      *Primitive, *Primitive_i, *Primitive_j,
-      *Surface_Areas, Total_HeatFlux_Areas, Total_HeatFlux_Areas_Monitor;
-  su2double ***ConjugateVar, ***InterfaceVar, V_inf;
+  su2double **HeatFlux, AllBound_HeatFlux, AllBound_AverageT,
+      *Primitive, *Primitive_i, *Primitive_j;
+  su2double V_inf;
 
   su2double **CollectionEfficiency;
 
@@ -68,11 +66,11 @@ class CPTSolver final : public CSolver {
   su2double computeRelaxationTime(CSolver** solver_container, unsigned long iPoint);
 
   inline su2double uEx(su2double* coord) {
-    return 7*coord[0]; //cos(coord[1])*sin(coord[0]) + 10;
+    return cos(coord[1])*sin(coord[0]) + 10;
   }
 
   inline su2double vEx(su2double* coord) {
-    return -7*coord[1]; //cos(coord[0])*sin(coord[1]) + 10;
+    return cos(coord[0])*sin(coord[1]) + 10;
   }
 
   inline su2double aEx(su2double* coord) {

@@ -882,29 +882,36 @@ void CSourcePTStagMMS::ComputeResidual(su2double* val_residual, su2double** val_
 
   const su2double k = 1.2*2e-5/18.03e-6;
   const su2double k2 = 4*1000*2e-5*2e-5/ (3*18.03e-6);
-  const su2double uf = 10;
+  const su2double uf = 4.0;
   const su2double vf = 0.0;
-  const su2double kk = 7;
+  const su2double kk = 1.0;
 
   const su2double x = Coord_i[0];
   const su2double y = Coord_i[1];
 
 
-  val_residual[0] = Volume * (exp(x + y)*kk*(x - y))/100;
+//  val_residual[0] = Volume * (exp(x + y)*kk*(x - y))/100;
+  val_residual[0] = Volume * (exp(x + y)*kk*(-1 + x - y))/100;
 
-  val_residual[1] =
-      Volume *
-      (exp(x + y) * (pow(kk, 2) * x + pow(kk, 2) * pow(x, 2) - pow(kk, 2) * x * y -
-                     (24 * (uf - kk * x) *
-                      (1 + 0.15 * pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 0.687) +
-                       0.0175 / (1 + 42500 / pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 1.16)))) /
-                         k2)) / 100;
+//  val_residual[1] =
+//      Volume *
+//      (exp(x + y) * (pow(kk, 2) * x + pow(kk, 2) * pow(x, 2) - pow(kk, 2) * x * y -
+//                     (24 * (uf - kk * x) *
+//                      (1 + 0.15 * pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 0.687) +
+//                       0.0175 / (1 + 42500 / pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 1.16)))) /
+//                         k2)) / 100;
 
-  val_residual[2] =
-      Volume *
-      (exp(x + y) * (pow(kk, 2) * y - pow(kk, 2) * x * y + pow(kk, 2) * pow(y, 2) -
-                     (24 * (vf + kk * y) *
-                      (1 + 0.15 * pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 0.687) +
-                       0.0175 / (1 + 42500 / pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 1.16)))) /
-                         k2)) / 100;
+//  val_residual[1] = Volume * (exp(x + y)*pow(kk,2)*x*(1 + x - y))/100;
+  val_residual[1] = Volume * (exp(x + y)*pow(kk,2)*x*(x - y))/100;
+
+//  val_residual[2] =
+//      Volume *
+//      (exp(x + y) * (pow(kk, 2) * y - pow(kk, 2) * x * y + pow(kk, 2) * pow(y, 2) -
+//                     (24 * (vf + kk * y) *
+//                      (1 + 0.15 * pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 0.687) +
+//                       0.0175 / (1 + 42500 / pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 1.16)))) /
+//                         k2)) / 100;
+
+//  val_residual[2] = Volume * (exp(x + y)*pow(kk,2)*y*(1 - x + y))/100;
+  val_residual[2] = Volume * -0.01*(exp(x + y)*pow(kk,2)*(-2 + x - y)*(1 + y));
 }
