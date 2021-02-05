@@ -42,6 +42,7 @@
 #include "../../../Common/include/toolboxes/MMS/CRinglebSolution.hpp"
 #include "../../../Common/include/toolboxes/MMS/CTGVSolution.hpp"
 #include "../../../Common/include/toolboxes/MMS/CUserDefinedSolution.hpp"
+#include "../../../Common/include/toolboxes/MMS/CMMSPGDWall.hpp"
 #include "../../../Common/include/toolboxes/printing_toolbox.hpp"
 #include "../../../Common/include/toolboxes/C1DInterpolation.hpp"
 #include "../../../Common/include/toolboxes/geometry_toolbox.hpp"
@@ -4337,6 +4338,26 @@ void CSolver::SetVerificationSolution(unsigned short nDim,
       VerificationSolution = new CMMSIncNSSolution(nDim, nVar, MGLevel, config); break;
     case USER_DEFINED_SOLUTION:
       VerificationSolution = new CUserDefinedSolution(nDim, nVar, MGLevel, config); break;
+    default: VerificationSolution = nullptr;
+  }
+
+  if (SolverName == "PT") {
+    switch (config->GetVerification_Solution()) {
+      case MMS_PGD_WALL:
+        VerificationSolution = new CMMSPGDWall(nDim, nVar, MGLevel, config);
+        break;
+      case MMS_PGD_FAR:
+        VerificationSolution = new CMMSPGDFar(nDim, nVar, MGLevel, config);
+        break;
+      case MMS_PT_FAR:
+        VerificationSolution = new CMMSPTFar(nDim, nVar, MGLevel, config);
+        break;
+      case MMS_PT_WALL:
+        VerificationSolution = new CMMSPTWall(nDim, nVar, MGLevel, config);
+        break;
+      default:
+        VerificationSolution = nullptr;
+    }
   }
 }
 

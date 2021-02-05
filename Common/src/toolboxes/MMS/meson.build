@@ -10,4 +10,5 @@ common_src += files(['CInviscidVortexSolution.cpp',
            'CTGVSolution.cpp',
            'CMMSNSUnitQuadSolutionWallBC.cpp',
            'CVerificationSolution.cpp',
+           'CMMSPGDWall.cpp',
            'CUserDefinedSolution.cpp'])

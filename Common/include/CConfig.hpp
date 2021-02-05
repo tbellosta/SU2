@@ -1124,6 +1124,7 @@ private:
   bool Compute_Average;                      /*!< \brief Whether or not to compute averages for unsteady simulations in FV or DG solver. */
   unsigned short Comm_Level;                 /*!< \brief Level of MPI communications to be performed. */
   unsigned short Kind_Verification_Solution; /*!< \brief Verification solution for accuracy assessment. */
+//  unsigned short Kind_Verification_Solution_PT; /*!< \brief Verification solution for accuracy assessment. */
 
   ofstream *ConvHistFile;        /*!< \brief Store the pointer to each history file */
   bool Time_Domain;              /*!< \brief Determines if the multizone problem is solved in time-domain */
@@ -9001,6 +9002,7 @@ public:
    * \return The verification solution to be used.
    */
   unsigned short GetVerification_Solution(void) const { return Kind_Verification_Solution;}
+//  unsigned short GetVerification_Solution_PT(void) const { return Kind_Verification_Solution_PT;}
 
   /*!
    * \brief Get topology optimization.

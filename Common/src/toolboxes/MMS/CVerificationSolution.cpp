@@ -93,6 +93,13 @@ void CVerificationSolution::GetSolution(const su2double *val_coords,
   SU2_MPI::Error("Function must be overwritten by the derived class", CURRENT_FUNCTION);
 }
 
+void CVerificationSolution::GetPrimitive(const su2double *val_coords,
+                                        const su2double val_t,
+                                        su2double       *val_solution) const {
+
+  SU2_MPI::Error("Function must be overwritten by the derived class", CURRENT_FUNCTION);
+}
+
 void CVerificationSolution::GetInitialCondition(const su2double *val_coords,
                                                 su2double       *val_solution) const {
 
@@ -156,6 +163,7 @@ void CVerificationSolution::SetVerificationError(unsigned long nDOFsGlobal,
 
     for(unsigned short iVar=0; iVar<nVar; ++iVar) {
       SetError_RMS(iVar, max(EPS*EPS, sqrt(rbufError[iVar]/nDOFsGlobal)));
+//      SetError_RMS(iVar, max(EPS*EPS, sqrt(rbufError[iVar])));
     }
 
     /*--- The global maximum norms must be obtained. ---*/

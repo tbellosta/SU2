@@ -804,36 +804,35 @@ void CSourcePGDMMS::ComputeResidual(su2double* val_residual, su2double** val_Jac
   const su2double x = Coord_i[0];
   const su2double y = Coord_i[1];
 
+    val_residual[0] = Volume * (exp(x + y)*(20 + cos(x - y) + cos(x + y) + sin(x + y)))/100;
+//  val_residual[0] =
+//      Volume * (exp(x + y) * (10 * (2 + y) + cos(y) * sin(x) + (1 + y) * cos(x) * (cos(y) + sin(y)))) / 100;
 
-  val_residual[0] = Volume * (exp(x + y)*(20 + cos(x - y) + cos(x + y) + sin(x + y)))/100;
+  val_residual[1] =
+      Volume *
+      (exp(x + y) *
+       (200 + 30 * cos(y) * sin(x) + pow(cos(y), 2) * pow(sin(x), 2) - 10 * sin(x) * sin(y) +
+        cos(x) * (3 * pow(cos(y), 2) * sin(x) + sin(y) * (10 - sin(x) * sin(y)) + cos(y) * (30 + sin(x) * sin(y))))) /
+      100;
 
-  val_residual[1] = Volume * (exp(x + y)*
-                              (200 + 30*cos(y)*
-                                         sin(x) +
-                               pow(cos(y),2)*
-                                   pow(sin(x),2) -
-                               10*sin(x)*sin(y) +
-                                  cos(x)*
-                               (3*pow(cos(y),2)*
-                                    sin(x) +
-                                   sin(y)*
-                                (10 -
-                                    sin(x)*sin(y)) +
-                                   cos(y)*
-                                (30 +
-                                 sin(x)*sin(y)))))/
-                             100;
+//  val_residual[1] =
+//      Volume *
+//      (exp(x + y) * (200 + 100 * y + 10 * (3 + y) * cos(y) * sin(x) + pow(cos(y), 2) * (pow(sin(x), 2) + sin(2 * x)) -
+//                     10 * y * sin(x) * sin(y) +
+//                     cos(x) * (y * pow(cos(y), 2) * sin(x) + sin(y) * (10 * (1 + y) - y * sin(x) * sin(y)) +
+//                               cos(y) * (10 * (2 + y) + (1 + y) * sin(x) * sin(y))))) / 100;
 
-  val_residual[2] = Volume * (exp(x + y)*
-                              (200 - 10*sin(x)*sin(y) +
-                                  pow(cos(x),2)*sin(y)*
-                               (3*cos(y) + sin(y)) +
-                                  cos(y)*sin(x)*
-                               (10 - sin(x)*sin(y)) +
-                                  cos(x)*(30*sin(y) +
-                                      cos(y)*(30 + sin(x)*sin(y))
-                               )))/100;
+      val_residual[2] = Volume *
+                    (exp(x + y) * (200 - 10 * sin(x) * sin(y) + pow(cos(x), 2) * sin(y) * (3 * cos(y) + sin(y)) +
+                                   cos(y) * sin(x) * (10 - sin(x) * sin(y)) +
+                                   cos(x) * (30 * sin(y) + cos(y) * (30 + sin(x) * sin(y))))) / 100;
 
+//  val_residual[2] =
+//      Volume *
+//      (exp(x + y) * y *
+//       (100 * (3 + y) - 10 * sin(x) * sin(y) + pow(cos(x), 2) * sin(y) * ((1 + 2 * y) * cos(y) + (2 + y) * sin(y)) +
+//        cos(y) * sin(x) * (10 - sin(x) * sin(y)) +
+//        cos(x) * (10 * (5 + 2 * y) * sin(y) + cos(y) * (10 + 20 * y + sin(x) * sin(y))))) / 100;
 }
 
 CSourcePTMMS::CSourcePTMMS(unsigned short val_nDim, unsigned short val_nVar, CConfig* config) : CNumerics(val_nDim, val_nVar, config){}

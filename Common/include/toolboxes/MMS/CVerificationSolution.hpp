@@ -90,6 +90,16 @@ public:
                            su2double       *val_solution) const;
 
   /*!
+ * \brief Get the exact primitive at the current position and time.
+ * \param[in] val_coords   - Cartesian coordinates of the current position.
+ * \param[in] val_t        - Current physical time.
+ * \param[in] val_solution - Array where the exact solution is stored.
+ */
+  virtual void GetPrimitive(const su2double *val_coords,
+                           const su2double val_t,
+                           su2double       *val_primitive) const;
+
+  /*!
    * \brief Get the exact solution at the current position and t = 0.
    * \param[in] val_coords   - Cartesian coordinates of the current position.
    * \param[in] val_solution - Array where the exact solution is stored.

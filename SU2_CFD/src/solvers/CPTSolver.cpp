@@ -136,72 +136,6 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
     OutputHeadingNames = new string[nOutputVariables];
   }
 
-//  HeatFlux_per_Marker = new su2double[nMarker];
-//  AverageT_per_Marker = new su2double[nMarker];
-//  Surface_Areas       = new su2double[config->GetnMarker_HeatFlux()];
-//
-//  for(iMarker = 0; iMarker < nMarker; iMarker++) {
-//    HeatFlux_per_Marker[iMarker]        = 0.0;
-//    AverageT_per_Marker[iMarker]  = 0.0;
-//  }
-//  for(iMarker = 0; iMarker < config->GetnMarker_HeatFlux(); iMarker++) {
-//    Surface_Areas[iMarker] = 0.0;
-//  }
-//
-//  Set_Heatflux_Areas(geometry, config);
-
-  /*--- Set the reference values for temperature ---*/
-
-  su2double Temperature_FreeStream = config->GetInc_Temperature_Init();
-  config->SetTemperature_FreeStream(Temperature_FreeStream);
-  su2double Temperature_Ref = 0.0;
-
-  if (config->GetRef_Inc_NonDim() == DIMENSIONAL) {
-    Temperature_Ref = 1.0;
-  }
-  else if (config->GetRef_Inc_NonDim() == INITIAL_VALUES) {
-    Temperature_Ref = Temperature_FreeStream;
-  }
-  else if (config->GetRef_Inc_NonDim() == REFERENCE_VALUES) {
-    Temperature_Ref = config->GetInc_Temperature_Ref();
-  }
-  config->SetTemperature_Ref(Temperature_Ref);
-
-  /*--- Set the reference values for heat fluxes. If the heat solver runs stand-alone,
-   *    thermal conductivity is read directly from config file ---*/
-
-//  if (heat_equation) {
-//
-//    su2double rho_cp = config->GetDensity_Solid()*config->GetSpecific_Heat_Cp();
-//    config->SetThermalDiffusivity_Solid(config->GetThermalConductivity_Solid() / rho_cp);
-//
-//    config->SetTemperature_FreeStreamND(config->GetTemperature_Initial_Solid()/config->GetTemperature_Ref());
-//    config->SetHeat_Flux_Ref(rho_cp*Temperature_Ref);
-//  }
-//  else {
-
-    config->SetTemperature_FreeStreamND(config->GetTemperature_FreeStream()/config->GetTemperature_Ref());
-    config->SetHeat_Flux_Ref(config->GetViscosity_Ref()*config->GetSpecific_Heat_Cp());
-//  }
-
-  /*--- Store the value of the temperature and the heat flux density at the boundaries,
-   used for communications with donor cells ---*/
-
-//  unsigned short nConjVariables = 4;
-//
-//  ConjugateVar = new su2double** [nMarker];
-//  for (iMarker = 0; iMarker < nMarker; iMarker++) {
-//    ConjugateVar[iMarker] = new su2double* [geometry->nVertex[iMarker]];
-//    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
-//
-//      ConjugateVar[iMarker][iVertex] = new su2double [nConjVariables];
-//      for (iVar = 0; iVar < nConjVariables ; iVar++) {
-//        ConjugateVar[iMarker][iVertex][iVar] = 0.0;
-//      }
-//      ConjugateVar[iMarker][iVertex][0] = config->GetTemperature_FreeStreamND();
-//    }
-//  }
-
   /*--- Collection efficiency in all the markers ---*/
 
   CollectionEfficiency = new su2double* [nMarker];
@@ -246,8 +180,16 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
 
   SolverName = "PT";
 
-//  V_inf = config->GetMach() * sqrt(config->GetGamma() * config->GetGas_Constant() * config->GetTemperature_FreeStream());
   V_inf = GeometryToolbox::Norm(nDim, config->GetVelocity_FreeStream());
+
+  /*--- Check if we are executing a verification case. If so, the
+ VerificationSolution object will be instantiated for a particular
+ option from the available library of verification solutions. Note
+ that this is done after SetNondim(), as problem-specific initial
+ parameters are needed by the solution constructors. ---*/
+
+  SetVerificationSolution(nDim, nVar, config);
+
 }
 
 CPTSolver::~CPTSolver(void) {
@@ -995,6 +937,10 @@ void CPTSolver::ExplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
 
   SetResidual_RMS(geometry, config);
 
+  /*--- For verification cases, compute the global error metrics. ---*/
+
+  ComputeVerificationError(geometry, config);
+
 }
 
 
@@ -1117,6 +1063,10 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
 
   SetResidual_RMS(geometry, config);
 
+  /*--- For verification cases, compute the global error metrics. ---*/
+
+  ComputeVerificationError(geometry, config);
+
   for (iVar = 0; iVar < nVar; ++iVar) delete [] jacobian[iVar];
   delete [] jacobian;
 
@@ -1132,72 +1082,41 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
   bool dual_time = ((config->GetTime_Marching() == DT_STEPPING_1ST) ||
                     (config->GetTime_Marching() == DT_STEPPING_2ND));
 
-  /*--- If restart solution, then interpolate the flow solution to
-   all the multigrid levels, this is important with the dual time strategy ---*/
-
-  if (restart && (TimeIter == 0)) {
-
-    Solution = new su2double[nVar];
-    for (iMesh = 1; iMesh <= config->GetnMGLevels(); iMesh++) {
-      for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); iPoint++) {
-        Area_Parent = geometry[iMesh]->nodes->GetVolume(iPoint);
-        for (iVar = 0; iVar < nVar; iVar++) Solution[iVar] = 0.0;
-        for (iChildren = 0; iChildren < geometry[iMesh]->nodes->GetnChildren_CV(iPoint); iChildren++) {
-          Point_Fine = geometry[iMesh]->nodes->GetChildren_CV(iPoint, iChildren);
-          Area_Children = geometry[iMesh-1]->nodes->GetVolume(Point_Fine);
-          Solution_Fine = solver_container[iMesh-1][PT_SOL]->GetNodes()->GetSolution(Point_Fine);
-          for (iVar = 0; iVar < nVar; iVar++) {
-            Solution[iVar] += Solution_Fine[iVar]*Area_Children/Area_Parent;
-          }
-        }
-        solver_container[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint,Solution);
-      }
-      solver_container[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
-      solver_container[iMesh][PT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
-    }
-    delete [] Solution;
-  }
 
   if (!restart && (TimeIter == 0)) {
-    /*--- Shock tube problem ---*/
+
     su2double* Coord;
-//    su2double wr[4] = {0.003, 0.5 * 1 * 0.003, 0, 0};
-//    su2double wl[4] = {0.008, 1.5 * 1 * 0.008, 0, 0};
-
     su2double LWC = config->GetLiquidWaterContent();
-    su2double wr[4] = {0.0, 0.0, 0, 0};
-    su2double wl[4] = {1, 50, 0, 0};
-//    su2double wl[4] = {1e-15, 0, 0, 0};
-
-    for (int iDim = 0; iDim < nDim; ++iDim) {
-      wl[iDim+1] = 1 * config->GetVelocity_FreeStream()[iDim];
-    }
 
     su2double *flowPrimitive;
 
 
     for (iMesh = 0; iMesh <= config->GetnMGLevels(); ++iMesh) {
       for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); ++iPoint) {
+
         Coord = geometry[iMesh]->nodes->GetCoord(iPoint);
+        su2double *solDOF = nodes->GetSolution(iPoint);
+
+        if (VerificationSolution) {
+
+          /* Set the solution in this DOF to the initial condition provided by
+             the verification solution class. This can be the exact solution,
+             but this is not necessary. */
+          VerificationSolution->GetInitialCondition(Coord, solDOF);
+
+        } else {
+          LWC = 1.0;
+          solDOF[0] = LWC;
+
+          for (int iDim = 0; iDim < nDim; ++iDim) solDOF[iDim+1] = 1 * config->GetVelocity_FreeStream()[iDim];
 
 //        flowPrimitive = solver_container[iMesh][FLOW_SOL]->GetNodes()->GetPrimitive(iPoint);
-//        for (int iDim = 0; iDim < nDim; ++iDim) {
-//          wl[iDim+1] = flowPrimitive[iDim+1] * 1;
-//        }
-
-        wl[0] = aEx(Coord);
-        wl[1] = aEx(Coord) * uEx(Coord);
-        wl[2] = aEx(Coord) * vEx(Coord);
-
-        solver_container[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint, wl);
-
-
-//        if ((Coord[0]*Coord[0] + Coord[1]*Coord[1]) <= 1) solver_container[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint, wl);
-//        else solver_container[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint, wr);
+//        for (int iDim = 0; iDim < nDim; ++iDim) solDOF[iDim+1] = flowPrimitive[iDim+1] * LWC;
+        }
 
       }
-      solver_container[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
-      solver_container[iMesh][PT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
+//      solver_container[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
+//      solver_container[iMesh][PT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
     }
   }
 
@@ -1314,6 +1233,8 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
     V_Infty[iDim+1] = config->GetVelocity_FreeStream()[iDim];
   }
 
+  su2double time = config->GetPhysicalTime();
+
 
   for (iVertex = 0; iVertex < geometry->nVertex[val_marker]; iVertex++) {
 
@@ -1335,9 +1256,9 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
         Vn -= nodes->GetPrimitive(iPoint,iDim+1)*Normal[iDim];
       }
 
-      V_Infty[0] = aEx(geometry->nodes->GetCoord(iPoint));
-      V_Infty[1] = uEx(geometry->nodes->GetCoord(iPoint));
-      V_Infty[2] = vEx(geometry->nodes->GetCoord(iPoint));
+      if (VerificationSolution) {
+        VerificationSolution->GetPrimitive(geometry->nodes->GetCoord(iPoint), time, V_Infty);
+      }
 
       /*--- Retrieve solution at this boundary node ---*/
 
@@ -1427,38 +1348,54 @@ void CPTSolver::Source_Residual(CGeometry* geometry, CSolver** solver_container,
   for (unsigned long iPoint = 0; iPoint < nPointDomain; iPoint++) {
 
 //    numerics->SetConservative(nodes->GetPrimitive(iPoint), nullptr);
-
+//
 //    numerics->SetPrimitive(flowNodes->GetPrimitive(iPoint), nullptr);
-
+//
 //    tau = computeRelaxationTime(solver_container, iPoint);
 //    numerics->SetParticleTau(tau);
-
+//
 //    numerics->SetVolume(geometry->nodes->GetVolume(iPoint));
-
-    /*--- Compute the source term ---*/
-
+//
+//    /*--- Compute the source term ---*/
+//
 //    numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
-
-    /*--- Subtract residual and the Jacobian ---*/
-
+//
+//    /*--- Subtract residual and the Jacobian ---*/
+//
 //    LinSysRes.SubtractBlock(iPoint, Residual);
 //
 //    Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
 
-    /*-- MMS source term --*/
+  }
 
-    numericsMMS->SetVolume(geometry->nodes->GetVolume(iPoint));
-    numericsMMS->SetCoord(geometry->nodes->GetCoord(iPoint), nullptr);
+  /*--- Check if a verification solution is to be computed. ---*/
 
-    /*--- Compute the source term ---*/
+  if ( VerificationSolution ) {
+    if ( VerificationSolution->IsManufacturedSolution() ) {
 
-    numericsMMS->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
+      /*--- Get the physical time. ---*/
+      su2double time = 0.0;
+      if (config->GetTime_Marching()) time = config->GetPhysicalTime();
 
-    /*--- Subtract residual and the Jacobian ---*/
+      /*--- Loop over points ---*/
+      for (unsigned long iPoint = 0; iPoint < nPointDomain; iPoint++) {
 
-    LinSysRes.SubtractBlock(iPoint, Residual);
+        /*--- Get control volume size. ---*/
+        su2double Volume = geometry->nodes->GetVolume(iPoint);
 
+        /*--- Get the current point coordinates. ---*/
+        const su2double *coor = geometry->nodes->GetCoord(iPoint);
 
+        /*--- Get the MMS source term. ---*/
+        vector<su2double> sourceMan(nVar,0.0);
+        VerificationSolution->GetMMSSourceTerm(coor, time, sourceMan.data());
+
+        /*--- Compute the residual for this control volume and subtract. ---*/
+        for (unsigned long iVar = 0; iVar < nVar; iVar++) {
+          LinSysRes(iPoint,iVar) -= sourceMan[iVar]*Volume;
+        }
+      }
+    }
   }
 
 }
@@ -1552,7 +1489,6 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
       }
 
       if (ProjVelocity_i >= 0) {
-//        V_reflected[0] = -V_domain[0];
         for (iDim = 0; iDim < nDim; iDim++)
           V_reflected[iDim + 1] = nodes->GetPrimitive(iPoint, iDim + 1) - 2.0 * ProjVelocity_i * UnitNormal[iDim];
       }
@@ -1944,5 +1880,99 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
   su2double tau = (4*rho*d*d) / (3*mu*Re*Cd);
 
   return tau;
+
+}
+
+void CPTSolver::PrintVerificationError(const CConfig *config) const {
+
+  if ((rank != MASTER_NODE) || (MGLevel != MESH_0)) return;
+
+  if (config && !config->GetDiscrete_Adjoint()) {
+
+    cout.precision(5);
+    cout.setf(ios::scientific, ios::floatfield);
+
+    cout << endl   << "------------------------ Global Error Analysis --------------------------" << endl;
+
+    cout << setw(20) << "RMS Error  [alpha]: " << setw(12) << VerificationSolution->GetError_RMS(0) << "     | ";
+    cout << setw(20) << "Max Error  [alpha]: " << setw(12) << VerificationSolution->GetError_Max(0);
+    cout << endl;
+
+    cout << setw(20) << "RMS Error [alphaU]: " << setw(12) << VerificationSolution->GetError_RMS(1) << "     | ";
+    cout << setw(20) << "Max Error [alphaU]: " << setw(12) << VerificationSolution->GetError_Max(1);
+    cout << endl;
+
+    cout << setw(20) << "RMS Error [alphaV]: " << setw(12) << VerificationSolution->GetError_RMS(2) << "     | ";
+    cout << setw(20) << "Max Error [alphaV]: " << setw(12) << VerificationSolution->GetError_Max(2);
+    cout << endl;
+
+    if (nDim == 3) {
+      cout << setw(20) << "RMS Error [alphaW]: " << setw(12) << VerificationSolution->GetError_RMS(3) << "     | ";
+      cout << setw(20) << "Max Error [alphaW]: " << setw(12) << VerificationSolution->GetError_Max(3);
+      cout << endl;
+    }
+
+    cout << "-------------------------------------------------------------------------" << endl << endl;
+    cout.unsetf(ios_base::floatfield);
+  }
+}
+
+
+void CPTSolver::ComputeVerificationError(CGeometry* geometry, CConfig* config) {
+
+  /*--- The errors only need to be computed on the finest grid. ---*/
+  if (MGLevel != MESH_0) return;
+
+  /*--- If this is a verification case, we can compute the global
+   error metrics by using the difference between the local error
+   and the known solution at each DOF. This is then collected into
+   RMS (L2) and maximum (Linf) global error norms. From these
+   global measures, one can compute the order of accuracy. ---*/
+
+  bool write_heads =
+      ((((config->GetInnerIter() % (config->GetWrt_Con_Freq() * 40)) == 0) && (config->GetInnerIter() != 0)) ||
+       (config->GetInnerIter() == 1));
+  if (!write_heads) return;
+
+  /*--- Check if there actually is an exact solution for this
+        verification case, if computed at all. ---*/
+  if (VerificationSolution && VerificationSolution->ExactSolutionKnown()) {
+    /*--- Get the physical time if necessary. ---*/
+    su2double time = 0.0;
+    if (config->GetTime_Marching()) time = config->GetPhysicalTime();
+
+    /*--- Reset the global error measures to zero. ---*/
+    for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+      VerificationSolution->SetError_RMS(iVar, 0.0);
+      VerificationSolution->SetError_Max(iVar, 0.0, 0);
+    }
+
+    /*--- Loop over all owned points. ---*/
+    for (unsigned long iPoint = 0; iPoint < nPointDomain; iPoint++) {
+      /* Set the pointers to the coordinates and solution of this DOF. */
+      const su2double* coor = geometry->nodes->GetCoord(iPoint);
+      su2double* solDOF = nodes->GetSolution(iPoint);
+
+      /* Get local error from the verification solution class. */
+      vector<su2double> error(nVar, 0.0);
+      VerificationSolution->GetLocalError(coor, time, solDOF, error.data());
+
+      /* Increment the global error measures */
+      for (unsigned short iVar = 0; iVar < nVar; iVar++) {
+        VerificationSolution->AddError_RMS(iVar, error[iVar] * error[iVar]);
+//        VerificationSolution->AddError_RMS(iVar, error[iVar] * error[iVar] * geometry->nodes->GetVolume(iPoint));
+        VerificationSolution->AddError_Max(iVar, fabs(error[iVar]), geometry->nodes->GetGlobalIndex(iPoint),
+                                           geometry->nodes->GetCoord(iPoint));
+      }
+    }
+
+    /* Finalize the calculation of the global error measures. */
+    VerificationSolution->SetVerificationError(geometry->GetGlobal_nPointDomain(), config);
+
+    /*--- Screen output of the error metrics. This can be improved
+     once the new output classes are in place. ---*/
+
+    PrintVerificationError(config);
+  }
 
 }

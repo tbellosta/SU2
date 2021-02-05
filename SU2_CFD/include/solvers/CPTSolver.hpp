@@ -65,17 +65,7 @@ class CPTSolver final : public CSolver {
 
   su2double computeRelaxationTime(CSolver** solver_container, unsigned long iPoint);
 
-  inline su2double uEx(su2double* coord) {
-    return cos(coord[1])*sin(coord[0]) + 10;
-  }
-
-  inline su2double vEx(su2double* coord) {
-    return cos(coord[0])*sin(coord[1]) + 10;
-  }
-
-  inline su2double aEx(su2double* coord) {
-    return exp(coord[0] + coord[1])/100;
-  }
+  void PrintVerificationError(const CConfig *config) const;
 
  public:
 
@@ -291,6 +281,13 @@ class CPTSolver final : public CSolver {
                                    CSolver **solver_container,
                                    CConfig *config,
                                    unsigned short iMesh);
+
+  /*!
+   * \brief Compute the global error measures (L2, Linf) for verification cases.
+   * \param[in] geometry - Geometrical definition.
+   * \param[in] config   - Definition of the particular problem.
+   */
+  void ComputeVerificationError(CGeometry* geometry, CConfig* config) final;
 
 
   inline void SetPrimitive_Gradient_GG(CGeometry *geometry,

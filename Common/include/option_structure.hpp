@@ -2260,6 +2260,10 @@ enum ENUM_VERIFICATION_SOLUTIONS {
   MMS_NS_TWO_HALF_SPHERES  = 64,       /*!< \brief Manufactured solution of the laminar Navier Stokes equations between two half spheres. */
   MMS_INC_EULER            = 65,       /*!< \brief Manufactured solution of the incompressible Euler equations. */
   MMS_INC_NS               = 66,       /*!< \brief Manufactured solution of the laminar incompressible Navier Stokes equations. */
+  MMS_PGD_WALL             = 70,
+  MMS_PGD_FAR              = 71,
+  MMS_PT_WALL              = 72,
+  MMS_PT_FAR               = 73,
   USER_DEFINED_SOLUTION    = 99,       /*!< \brief User defined solution. */
 };
 static const MapType<string, ENUM_VERIFICATION_SOLUTIONS> Verification_Solution_Map = {
@@ -2275,6 +2279,10 @@ static const MapType<string, ENUM_VERIFICATION_SOLUTIONS> Verification_Solution_
   MakePair("MMS_NS_TWO_HALF_SPHERES",  MMS_NS_TWO_HALF_SPHERES)
   MakePair("MMS_INC_EULER",            MMS_INC_EULER)
   MakePair("MMS_INC_NS",               MMS_INC_NS)
+  MakePair("MMS_PGD_WALL",             MMS_PGD_WALL)
+  MakePair("MMS_PGD_FAR",              MMS_PGD_FAR)
+  MakePair("MMS_PT_WALL",              MMS_PT_WALL)
+  MakePair("MMS_PT_FAR",               MMS_PT_FAR)
   MakePair("USER_DEFINED_SOLUTION",    USER_DEFINED_SOLUTION)
 };
 
