@@ -423,7 +423,7 @@ void CMMSPTWall::GetPrimitive(const su2double* val_coords, const su2double val_t
 
   const su2double u = cos(y)*sin(x) + 10;
 
-  const su2double v = cos(x)*sin(y) + 10;
+  const su2double v = y*(cos(x)*sin(y) + 10);
 
 
   /* Compute the conservative variables from the primitive ones.
