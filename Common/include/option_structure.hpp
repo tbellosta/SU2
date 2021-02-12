@@ -99,6 +99,7 @@ const su2double BOLTZMANN_CONSTANT = 1.3806503E-23; /*! \brief Boltzmann's const
 const su2double AVOGAD_CONSTANT = 6.0221415E26; /*!< \brief Avogardro's constant, number of particles in one kmole. */
 
 const su2double EPS = 1.0E-16;        /*!< \brief Error scale. */
+const su2double PT_EPS = 1.0E-14;        /*!< \brief Error scale. */
 const su2double TURB_EPS = 1.0E-16;   /*!< \brief Turbulent Error scale. */
 
 const su2double ONE2 = 0.5;         /*!< \brief One divided by two. */

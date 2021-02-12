@@ -233,7 +233,7 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
     projVel_j += Velocity_j[iDim]*Normal[iDim];
   }
 
-  uDelta = (sqrt(Density_i)*projVel_i + sqrt(Density_j)*projVel_j) / (sqrt(Density_i) + sqrt(Density_j) + EPS);
+  uDelta = (sqrt(Density_i)*projVel_i + sqrt(Density_j)*projVel_j) / (sqrt(Density_i) + sqrt(Density_j));
 
   GetProjFluxPT(&Density_i, Velocity_i, Normal, Proj_Flux_i);
   GetProjFluxPT(&Density_j, Velocity_j, Normal, Proj_Flux_j);
@@ -388,9 +388,8 @@ void CSourceDrag::ComputeResidual(su2double* val_residual, su2double** val_Jacob
 
   su2double *uFlow = &V_i[1];
 
-  su2double Uf[2] = {10, 10};
-
-  uFlow = Uf;
+//  su2double Uf[2] = {4.0, 1.0};
+//  uFlow = Uf;
 
   val_residual[0] = 0.0;
 
@@ -792,125 +791,4 @@ void CCent_PT::DissipationTerm(su2double *val_residual, su2double **val_Jacobian
       val_Jacobian_j[iVar][iVar] -= fix_factor*cte_1;
     }
   }
-}
-
-
-CSourcePGDMMS::CSourcePGDMMS(unsigned short val_nDim, unsigned short val_nVar, CConfig* config) : CNumerics(val_nDim, val_nVar, config){}
-
-
-void CSourcePGDMMS::ComputeResidual(su2double* val_residual, su2double** val_Jacobian_i, su2double** val_Jacobian_j,
-                                    CConfig* config) {
-
-  const su2double x = Coord_i[0];
-  const su2double y = Coord_i[1];
-
-    val_residual[0] = Volume * (exp(x + y)*(20 + cos(x - y) + cos(x + y) + sin(x + y)))/100;
-//  val_residual[0] =
-//      Volume * (exp(x + y) * (10 * (2 + y) + cos(y) * sin(x) + (1 + y) * cos(x) * (cos(y) + sin(y)))) / 100;
-
-  val_residual[1] =
-      Volume *
-      (exp(x + y) *
-       (200 + 30 * cos(y) * sin(x) + pow(cos(y), 2) * pow(sin(x), 2) - 10 * sin(x) * sin(y) +
-        cos(x) * (3 * pow(cos(y), 2) * sin(x) + sin(y) * (10 - sin(x) * sin(y)) + cos(y) * (30 + sin(x) * sin(y))))) /
-      100;
-
-//  val_residual[1] =
-//      Volume *
-//      (exp(x + y) * (200 + 100 * y + 10 * (3 + y) * cos(y) * sin(x) + pow(cos(y), 2) * (pow(sin(x), 2) + sin(2 * x)) -
-//                     10 * y * sin(x) * sin(y) +
-//                     cos(x) * (y * pow(cos(y), 2) * sin(x) + sin(y) * (10 * (1 + y) - y * sin(x) * sin(y)) +
-//                               cos(y) * (10 * (2 + y) + (1 + y) * sin(x) * sin(y))))) / 100;
-
-      val_residual[2] = Volume *
-                    (exp(x + y) * (200 - 10 * sin(x) * sin(y) + pow(cos(x), 2) * sin(y) * (3 * cos(y) + sin(y)) +
-                                   cos(y) * sin(x) * (10 - sin(x) * sin(y)) +
-                                   cos(x) * (30 * sin(y) + cos(y) * (30 + sin(x) * sin(y))))) / 100;
-
-//  val_residual[2] =
-//      Volume *
-//      (exp(x + y) * y *
-//       (100 * (3 + y) - 10 * sin(x) * sin(y) + pow(cos(x), 2) * sin(y) * ((1 + 2 * y) * cos(y) + (2 + y) * sin(y)) +
-//        cos(y) * sin(x) * (10 - sin(x) * sin(y)) +
-//        cos(x) * (10 * (5 + 2 * y) * sin(y) + cos(y) * (10 + 20 * y + sin(x) * sin(y))))) / 100;
-}
-
-CSourcePTMMS::CSourcePTMMS(unsigned short val_nDim, unsigned short val_nVar, CConfig* config) : CNumerics(val_nDim, val_nVar, config){}
-
-
-void CSourcePTMMS::ComputeResidual(su2double* val_residual, su2double** val_Jacobian_i, su2double** val_Jacobian_j,
-                                    CConfig* config) {
-
-  const su2double k = 1.2*2e-5/18.03e-6;
-  const su2double k2 = 4*1000*2e-5*2e-5/ (3*18.03e-6);
-  const su2double uf = 10;
-  const su2double vf = 10;
-
-  const su2double x = Coord_i[0];
-  const su2double y = Coord_i[1];
-
-
-  val_residual[0] = Volume * (exp(x + y)*(20 + cos(x - y) + cos(x + y) + sin(x + y)))/100;
-
-  val_residual[1] =
-      Volume *
-      (exp(x + y) *
-       (3 * cos(x) * cos(y) * (10 + cos(y) * sin(x)) + pow(10 + cos(y) * sin(x), 2) +
-        (10 + cos(y) * sin(x)) * (10 + cos(x) * sin(y)) - sin(x) * sin(y) * (10 + cos(x) * sin(y)) -
-        (24 * (-10 + uf - cos(y) * sin(x)) *
-         (1 + 0.15 * pow(k * sqrt(pow(10 - uf + cos(y) * sin(x), 2) + pow(10 - vf + cos(x) * sin(y), 2)), 0.687) +
-          0.0175 / (1 + 42500. / pow(k * sqrt(pow(10 - uf + cos(y) * sin(x), 2) + pow(10 - vf + cos(x) * sin(y), 2)),
-                                     1.16)))) / k2)) / 100;
-
-  val_residual[2] =
-      Volume *
-      (exp(x + y) *
-       (-(sin(x) * (10 + cos(y) * sin(x)) * sin(y)) + 3 * cos(x) * cos(y) * (10 + cos(x) * sin(y)) +
-        (10 + cos(y) * sin(x)) * (10 + cos(x) * sin(y)) + pow(10 + cos(x) * sin(y), 2) -
-        (24 * (-10 + vf - cos(x) * sin(y)) *
-         (1 + 0.15 * pow(k * sqrt(pow(10 - uf + cos(y) * sin(x), 2) + pow(10 - vf + cos(x) * sin(y), 2)), 0.687) +
-          0.0175 / (1 + 42500. / pow(k * sqrt(pow(10 - uf + cos(y) * sin(x), 2) + pow(10 - vf + cos(x) * sin(y), 2)),
-                                     1.16)))) / k2)) / 100;
-}
-
-CSourcePTStagMMS::CSourcePTStagMMS(unsigned short val_nDim, unsigned short val_nVar, CConfig* config) : CNumerics(val_nDim, val_nVar, config){}
-
-
-void CSourcePTStagMMS::ComputeResidual(su2double* val_residual, su2double** val_Jacobian_i, su2double** val_Jacobian_j,
-                                   CConfig* config) {
-
-  const su2double k = 1.2*2e-5/18.03e-6;
-  const su2double k2 = 4*1000*2e-5*2e-5/ (3*18.03e-6);
-  const su2double uf = 4.0;
-  const su2double vf = 0.0;
-  const su2double kk = 1.0;
-
-  const su2double x = Coord_i[0];
-  const su2double y = Coord_i[1];
-
-
-//  val_residual[0] = Volume * (exp(x + y)*kk*(x - y))/100;
-  val_residual[0] = Volume * (exp(x + y)*kk*(-1 + x - y))/100;
-
-//  val_residual[1] =
-//      Volume *
-//      (exp(x + y) * (pow(kk, 2) * x + pow(kk, 2) * pow(x, 2) - pow(kk, 2) * x * y -
-//                     (24 * (uf - kk * x) *
-//                      (1 + 0.15 * pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 0.687) +
-//                       0.0175 / (1 + 42500 / pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 1.16)))) /
-//                         k2)) / 100;
-
-//  val_residual[1] = Volume * (exp(x + y)*pow(kk,2)*x*(1 + x - y))/100;
-  val_residual[1] = Volume * (exp(x + y)*pow(kk,2)*x*(x - y))/100;
-
-//  val_residual[2] =
-//      Volume *
-//      (exp(x + y) * (pow(kk, 2) * y - pow(kk, 2) * x * y + pow(kk, 2) * pow(y, 2) -
-//                     (24 * (vf + kk * y) *
-//                      (1 + 0.15 * pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 0.687) +
-//                       0.0175 / (1 + 42500 / pow(k * sqrt(pow(uf - kk * x, 2) + pow(vf + kk * y, 2)), 1.16)))) /
-//                         k2)) / 100;
-
-//  val_residual[2] = Volume * (exp(x + y)*pow(kk,2)*y*(1 - x + y))/100;
-  val_residual[2] = Volume * -0.01*(exp(x + y)*pow(kk,2)*(-2 + x - y)*(1 + y));
 }

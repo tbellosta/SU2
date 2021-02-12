@@ -124,14 +124,32 @@ class CPTVariable final : public CVariable {
       Primitive(iPoint,iVar) = val_prim[iVar];
   }
   inline su2double *GetPrimitive(unsigned long iPoint) final {return Primitive[iPoint]; }
+
   inline su2double GetPrimitive(unsigned long iPoint, unsigned long iVar) const final {return Primitive(iPoint,iVar); }
+
   inline const MatrixType& GetPrimitive(void) const { return Primitive; }
+
   inline su2double *GetLimiter_Primitive(unsigned long iPoint) final { return Limiter_Primitive[iPoint]; }
+
+  inline su2double GetLimiter_Primitive(unsigned long iPoint, unsigned long iVar) const final { return Limiter_Primitive(iPoint,iVar); }
+
   inline MatrixType& GetLimiter_Primitive(void) {return Limiter_Primitive; }
+
   inline const MatrixType& GetLimiter_Primitive(void) const {return Limiter_Primitive; }
 
+  inline void SetLimiter_Primitive(unsigned long iPoint, unsigned long iVar, su2double val_value) final {Limiter_Primitive(iPoint,iVar) = val_value;}
+
   inline su2double **GetGradient_Primitive(unsigned long iPoint) final { return Gradient_Primitive[iPoint]; }
+
   inline su2double GetGradient_Primitive(unsigned long iPoint, unsigned long iVar, unsigned long iDim) const final { return Gradient_Primitive(iPoint,iVar,iDim); }
+
+  inline void AddGradient_Primitive(unsigned long iPoint, unsigned long iVar, unsigned long iDim, su2double value) final {
+    Gradient_Primitive(iPoint,iVar,iDim) += value;
+  }
+
+  inline void SetGradient_Primitive(unsigned long iPoint, unsigned long iVar, unsigned long iDim, su2double value) final {
+    Gradient_Primitive(iPoint,iVar,iDim) = value;
+  }
 
 
   inline su2double GetSecondary(unsigned long iPoint, unsigned long iVar) const final { return Secondary(iPoint,iVar); }

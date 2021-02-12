@@ -56,7 +56,8 @@ class CPTSolver final : public CSolver {
    */
   inline CVariable* GetBaseClassPointerToNodes() override { return nodes; }
 
-  void clipSolution(void);
+  void LimitSolution(void);
+
   void SetPrimitiveVariables(CGeometry *geometry, CConfig *config);
 
   void SetCentered_Dissipation_Sensor(CGeometry *geometry, const CConfig *config);

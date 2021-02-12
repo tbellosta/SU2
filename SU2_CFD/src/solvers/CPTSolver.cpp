@@ -225,7 +225,7 @@ void CPTSolver:: Preprocessing(CGeometry *geometry, CSolver **solver_container, 
   /*--- Initialize the Jacobian matrices ---*/
   Jacobian.SetValZero();
 
-//  clipSolution();
+//  LimitSolution();
 
   /*--- Compute Primitives  ---*/
   SetPrimitiveVariables(geometry, config);
@@ -243,13 +243,15 @@ void CPTSolver:: Preprocessing(CGeometry *geometry, CSolver **solver_container, 
   if (config->GetKind_Gradient_Method() == WEIGHTED_LEAST_SQUARES) SetPrimitive_Gradient_LS(geometry, config);
 
 
-  if (muscl && limiter && (iMesh == MESH_0) && !Output && !van_albada)
-    SetPrimitive_Limiter(geometry, config);
-
   if (center && !Output) {
     SetMax_Eigenvalue(geometry, config);
     SetCentered_Dissipation_Sensor(geometry, config);
     SetUndivided_Laplacian(geometry, config);
+  }
+
+  if (limiter && (iMesh == MESH_0) && !Output && !van_albada) {
+
+    SetPrimitive_Limiter(geometry, config);
   }
 
 
@@ -534,8 +536,10 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
         Gradient_i = nodes->GetGradient_Reconstruction(iPoint);
         Gradient_j = nodes->GetGradient_Reconstruction(jPoint);
 
-        Limiter_i = nodes->GetLimiter_Primitive(iPoint);
-        Limiter_j = nodes->GetLimiter_Primitive(jPoint);
+        if (limiter) {
+          Limiter_i = nodes->GetLimiter_Primitive(iPoint);
+          Limiter_j = nodes->GetLimiter_Primitive(jPoint);
+        }
 
         /*Loop to correct the PT variables*/
         for (iVar = 0; iVar < nVar; iVar++) {
@@ -580,8 +584,8 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
        cell-average value of the solution. This is a locally 1st order approximation,
        which is typically only active during the start-up of a calculation. ---*/
 
-        bool neg_alpha_i = (MUSCLSol_i[0] < 0.0);
-        bool neg_alpha_j = (MUSCLSol_j[0] < 0.0);
+        bool neg_alpha_i = (MUSCLSol_i[0] < PT_EPS);
+        bool neg_alpha_j = (MUSCLSol_j[0] < PT_EPS);
 
         nodes->SetNon_Physical(iPoint, neg_alpha_i);
         nodes->SetNon_Physical(jPoint, neg_alpha_j);
@@ -949,10 +953,6 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
   unsigned short iVar;
   unsigned long iPoint, total_index;
   su2double Delta, Vol, *local_Res_TruncError, **jacobian, tau;
-  bool flow = ((config->GetKind_Solver() == INC_NAVIER_STOKES)
-               || (config->GetKind_Solver() == INC_RANS)
-               || (config->GetKind_Solver() == DISC_ADJ_INC_NAVIER_STOKES)
-               || (config->GetKind_Solver() == DISC_ADJ_INC_RANS));
 
 
   /*--- Set maximum residual to zero ---*/
@@ -987,9 +987,9 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
 
     if (nodes->GetDelta_Time(iPoint) != 0.0) {
 
-      tau = computeRelaxationTime(solver_container,iPoint);
       Delta = Vol / nodes->GetDelta_Time(iPoint);
 
+//      tau = computeRelaxationTime(solver_container,iPoint);
 //      if (tau > nodes->GetDelta_Time(iPoint)) {
 //        Jacobian.AddVal2Diag(iPoint, Delta);
 //      } else {
@@ -1038,16 +1038,15 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
   SetIterLinSolver(iter);
   SetResLinSolver(System.GetResidual());
 
-  su2double damping = 0.0;
-  su2double delta, factor;
-  for (iPoint = 0; iPoint < nPointDomain; iPoint++) {
-//    factor = fabs(LinSysSol[iPoint*nVar] / (nodes->GetSolution(iPoint,0) - 1e-10));
-    for (iVar = 0; iVar < nVar; iVar++) {
-//      delta = LinSysSol[iPoint*nVar+iVar] / (1 + damping*factor);
-//      nodes->AddSolution(iPoint,iVar, delta);
+  /*--- Limit solution update to enforce positive volume fraction ---*/
+
+  LimitSolution();
+
+  /*--- Update the solution ---*/
+
+  for (iPoint = 0; iPoint < nPointDomain; iPoint++)
+    for (iVar = 0; iVar < nVar; iVar++)
       nodes->AddSolution(iPoint,iVar, LinSysSol[iPoint*nVar+iVar]);
-    }
-  }
 
   for (unsigned short iPeriodic = 1; iPeriodic <= config->GetnMarker_Periodic()/2; iPeriodic++) {
     InitiatePeriodicComms(geometry, config, iPeriodic, PERIODIC_IMPLICIT);
@@ -1103,6 +1102,7 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
              the verification solution class. This can be the exact solution,
              but this is not necessary. */
           VerificationSolution->GetInitialCondition(Coord, solDOF);
+          VerificationSolution->GetPrimitive(Coord, 0.0, nodes->GetPrimitive(iPoint));
 
         } else {
           LWC = 1.0;
@@ -1338,7 +1338,6 @@ void CPTSolver::Source_Residual(CGeometry* geometry, CSolver** solver_container,
 
   /*--- Pick one numerics object per thread. ---*/
   CNumerics* numerics = numerics_container[SOURCE_FIRST_TERM];
-  CNumerics* numericsMMS = numerics_container[SOURCE_SECOND_TERM];
 
   CVariable* flowNodes = solver_container[FLOW_SOL]->GetNodes();
 
@@ -1347,24 +1346,24 @@ void CPTSolver::Source_Residual(CGeometry* geometry, CSolver** solver_container,
   /*--- Loop over all points. ---*/
   for (unsigned long iPoint = 0; iPoint < nPointDomain; iPoint++) {
 
-//    numerics->SetConservative(nodes->GetPrimitive(iPoint), nullptr);
-//
-//    numerics->SetPrimitive(flowNodes->GetPrimitive(iPoint), nullptr);
-//
-//    tau = computeRelaxationTime(solver_container, iPoint);
-//    numerics->SetParticleTau(tau);
-//
-//    numerics->SetVolume(geometry->nodes->GetVolume(iPoint));
-//
-//    /*--- Compute the source term ---*/
-//
-//    numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
-//
-//    /*--- Subtract residual and the Jacobian ---*/
-//
-//    LinSysRes.SubtractBlock(iPoint, Residual);
-//
-//    Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
+    numerics->SetConservative(nodes->GetPrimitive(iPoint), nullptr);
+
+    numerics->SetPrimitive(flowNodes->GetPrimitive(iPoint), nullptr);
+
+    tau = computeRelaxationTime(solver_container, iPoint);
+    numerics->SetParticleTau(tau);
+
+    numerics->SetVolume(geometry->nodes->GetVolume(iPoint));
+
+    /*--- Compute the source term ---*/
+
+    numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
+
+    /*--- Subtract residual and the Jacobian ---*/
+
+    LinSysRes.SubtractBlock(iPoint, Residual);
+
+    Jacobian.SubtractBlock2Diag(iPoint, Jacobian_i);
 
   }
 
@@ -1579,25 +1578,23 @@ void CPTSolver::BC_Euler_Wall(CGeometry* geometry, CSolver** solver_container, C
   BC_HeatFlux_Wall(geometry,solver_container,conv_numerics,visc_numerics,config,val_marker);
 
 }
-void CPTSolver::clipSolution(void) {
+
+void CPTSolver::LimitSolution(void) {
 
   unsigned long iPoint;
   unsigned short iDim, iVar;
 
-  su2double alpha, *U;
+  su2double alpha, deltaAlpha, factor;
 
-  su2double Sol_zero[4] = {0.0, 0.0, 0.0, 0.0};
+  for (iPoint = 0; iPoint < nPointDomain; iPoint++) {
 
-  for (iPoint = 0; iPoint < nPointDomain; ++iPoint) {
     alpha = nodes->GetSolution(iPoint,0);
-    U = nodes->GetSolution(iPoint);
-    if (alpha < 0) {
-      for (iDim = 0; iDim < nDim; ++iDim) {
-        nodes->SetPrimitive(iPoint,iDim+1,U[iDim+1]/alpha);
-      }
-      nodes->SetSolution(iPoint, Sol_zero);
-      nodes->SetPrimitive(iPoint, 0, 0.0);
-    }
+    deltaAlpha = min(max(LinSysSol[iPoint*nVar], PT_EPS-alpha), 2*alpha);
+    factor = (LinSysSol[iPoint*nVar]) ? deltaAlpha / LinSysSol[iPoint*nVar] : 1.0;
+
+    LinSysSol[iPoint*nVar] = deltaAlpha;
+
+    for (iVar = 1; iVar < nVar; iVar++) LinSysSol[iPoint*nVar+iVar] = LinSysSol[iPoint*nVar+iVar]*factor;
   }
 
 }
@@ -1795,10 +1792,9 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
 
   su2double *uFlow = &FlowPrim[1], rhoFlow = FlowPrim[nDim+2];
 
-  rhoFlow = 1.2;
-  su2double Uf[2] = {4.0, 0.0};
-
-  uFlow = Uf;
+//  rhoFlow = 1.2;
+//  su2double Uf[2] = {4.0, 1.0};
+//  uFlow = Uf;
 
   su2double V_mag = 0.0;
   for (int iDim = 0; iDim < nDim; ++iDim) {

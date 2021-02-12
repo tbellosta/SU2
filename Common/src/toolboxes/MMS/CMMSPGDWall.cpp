@@ -321,25 +321,35 @@ void CMMSPTFar::GetMMSSourceTerm(const su2double *val_coords,
 
   const su2double k = 1.2*2e-5/18.03e-6;
   const su2double k2 = 4*1000*2e-5*2e-5/ (3*18.03e-6);
-  const su2double uf = 10;
-  const su2double vf = 10;
+  const su2double uf = 4.0;
+  const su2double vf = 1.0;
 
   const su2double x = val_coords[0];
   const su2double y = val_coords[1];
 
-  val_source[0] = (exp(x + y)*(20 + cos(x - y) + cos(x + y) +sin(x + y)))/100;
+  val_source[0] = (exp(x + y) * (20 + cos(x - y) + cos(x + y) + sin(x + y))) / 100;
 
-  val_source[1] = (exp(x + y)*(3*cos(x)*cos(y)*(10 + cos(y)*sin(x)) +pow(10 + cos(y)*sin(x),2) +
-                    (10 + cos(y)*sin(x))*(10 + cos(x)*sin(y)) -sin(x)*sin(y)*(10 + cos(x)*sin(y)) -(24*(-10 + uf -
-                         cos(y)*sin(x))*(1 +0.15*pow(k*sqrt(pow(10 - uf +cos(y)*sin(x),2) +pow(10 - vf +
-                                       cos(x)*sin(y),2)),0.687) +0.0175/(1 +42500./pow(k*sqrt(pow(10 - uf +
-                                        cos(y)*sin(x),2) +pow(10 - vf +cos(x)*sin(y),2)),1.16))))/k2))/100;
+  val_source[1] =
+      (exp(x + y) *
+       (3 * cos(x) * cos(y) * (10 + cos(y) * sin(x)) + pow(10 + cos(y) * sin(x), 2) +
+        (10 + cos(y) * sin(x)) * (10 + cos(x) * sin(y)) - sin(x) * sin(y) * (10 + cos(x) * sin(y)) -
+        (24 * (-10 + uf - cos(y) * sin(x)) *
+         (1 + 0.15 * pow(k * sqrt(pow(10 - uf + cos(y) * sin(x), 2) + pow(10 - vf + cos(x) * sin(y), 2)), 0.687) +
+          0.0175 / (1 + 42500. / pow(k * sqrt(pow(10 - uf + cos(y) * sin(x), 2) + pow(10 - vf + cos(x) * sin(y), 2)),
+                                     1.16)))) /
+            k2)) /
+      100;
 
-  val_source[2] = (exp(x + y)*(-(sin(x)*(10 + cos(y)*sin(x))*sin(y)) +3*cos(x)*cos(y)*(10 + cos(x)*sin(y)) +
-                    (10 + cos(y)*sin(x))*(10 + cos(x)*sin(y)) +pow(10 + cos(x)*sin(y),2) -(24*(-10 + vf -
-                         cos(x)*sin(y))*(1 +0.15*pow(k*sqrt(pow(10 - uf +cos(y)*sin(x),2) +
-                                 pow(10 - vf +cos(x)*sin(y),2)),0.687) +0.0175/(1 +42500./pow(k*
-                             sqrt(pow(10 - uf +cos(y)*sin(x),2) +pow(10 - vf +cos(x)*sin(y),2)),1.16))))/k2))/100;
+  val_source[2] =
+      (exp(x + y) *
+       (-(sin(x) * (10 + cos(y) * sin(x)) * sin(y)) + 3 * cos(x) * cos(y) * (10 + cos(x) * sin(y)) +
+        (10 + cos(y) * sin(x)) * (10 + cos(x) * sin(y)) + pow(10 + cos(x) * sin(y), 2) -
+        (24 * (-10 + vf - cos(x) * sin(y)) *
+         (1 + 0.15 * pow(k * sqrt(pow(10 - uf + cos(y) * sin(x), 2) + pow(10 - vf + cos(x) * sin(y), 2)), 0.687) +
+          0.0175 / (1 + 42500. / pow(k * sqrt(pow(10 - uf + cos(y) * sin(x), 2) + pow(10 - vf + cos(x) * sin(y), 2)),
+                                     1.16)))) /
+            k2)) /
+      100;
 }
 
 bool CMMSPTFar::IsManufacturedSolution(void) const {
@@ -449,8 +459,8 @@ void CMMSPTWall::GetMMSSourceTerm(const su2double *val_coords,
 
   const su2double k = 1.2*2e-5/18.03e-6;
   const su2double k2 = 4*1000*2e-5*2e-5/ (3*18.03e-6);
-  const su2double uf = 10;
-  const su2double vf = 10;
+  const su2double uf = 4.0;
+  const su2double vf = 1.0;
 
   const su2double x = val_coords[0];
   const su2double y = val_coords[1];

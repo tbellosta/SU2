@@ -157,6 +157,15 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
   if (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED)
   AddVolumeOutput("SENSOR", "Sensor", "SOLUTION", "Sensor");
 
+
+  // LIMITERS
+  if (config->GetKind_SlopeLimit_PT() != NO_LIMITER) {
+    AddVolumeOutput("LIM-U", "limU", "LIMITERS", "Limiter-U");
+    AddVolumeOutput("LIM-V", "limV", "LIMITERS", "Limiter-V");
+    AddVolumeOutput("LIM-A", "limA", "LIMITERS", "Limiter-alpha");
+    if (nDim == 3) AddVolumeOutput("LIM-W", "limW", "LIMITERS", "Limiter-W");
+  }
+
 }
 
 
@@ -216,7 +225,14 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
   SetVolumeOutputValue("PART-RE", iPoint, Re);
 
   if (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED)
-  SetVolumeOutputValue("SENSOR",  iPoint, Node_PT->GetSensor(iPoint));
+    SetVolumeOutputValue("SENSOR",  iPoint, Node_PT->GetSensor(iPoint));
+
+  if (config->GetKind_SlopeLimit_PT() != NO_LIMITER) {
+    SetVolumeOutputValue("LIM-U", iPoint, Node_PT->GetLimiter_Primitive(iPoint,1));
+    SetVolumeOutputValue("LIM-V", iPoint, Node_PT->GetLimiter_Primitive(iPoint,2));
+    SetVolumeOutputValue("LIM-A", iPoint, Node_PT->GetLimiter_Primitive(iPoint,0));
+    if (nDim == 3) SetVolumeOutputValue("LIM-W", iPoint, Node_PT->GetLimiter_Primitive(iPoint,3));
+  }
 
 
 }
