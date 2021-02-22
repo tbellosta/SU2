@@ -590,9 +590,10 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
         nodes->SetNon_Physical(iPoint, neg_alpha_i);
         nodes->SetNon_Physical(jPoint, neg_alpha_j);
 
+
         /*--- Get updated state, in case the point recovered after the set. ---*/
-        neg_alpha_i = nodes->GetNon_Physical(iPoint);
-        neg_alpha_j = nodes->GetNon_Physical(jPoint);
+//        neg_alpha_i = nodes->GetNon_Physical(iPoint);
+//        neg_alpha_j = nodes->GetNon_Physical(jPoint);
 
         numerics->SetPrimitive(neg_alpha_i? V_i : MUSCLSol_i,  neg_alpha_j? V_j : MUSCLSol_j);
 
@@ -901,7 +902,7 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
 
 void CPTSolver::ExplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_container, CConfig *config) {
 
-  su2double *local_Residual, *local_Res_TruncError, Vol, Delta, Res;
+  su2double *local_Residual, *local_Res_TruncError, Vol, Delta, Res, alpha, deltaAlpha, factor;
   unsigned short iVar;
   unsigned long iPoint;
 
@@ -921,10 +922,23 @@ void CPTSolver::ExplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
     local_Res_TruncError = nodes->GetResTruncError(iPoint);
     local_Residual = LinSysRes.GetBlock(iPoint);
 
+    /*--- Limit solution update to enforce positive volume fraction ---*/
+
+    alpha = nodes->GetSolution(iPoint,0);
+    Res = local_Residual[0] + local_Res_TruncError[0];
+    Res = -Res*Delta;
+    deltaAlpha = max(Res, PT_EPS-alpha);
+    factor = (Res) ? deltaAlpha / Res : 1.0;
+
+//    factor = 1.0;
+
+//    if (alpha+Res <= PT_EPS) {throw std::runtime_error("error");}
+
     if (!adjoint) {
       for (iVar = 0; iVar < nVar; iVar++) {
         Res = local_Residual[iVar] + local_Res_TruncError[iVar];
-        nodes->AddSolution(iPoint,iVar, -Res*Delta);
+        Res = -Res*Delta;
+        nodes->AddSolution(iPoint,iVar, Res*factor);
         AddRes_RMS(iVar, Res*Res);
         AddRes_Max(iVar, fabs(Res), geometry->nodes->GetGlobalIndex(iPoint), geometry->nodes->GetCoord(iPoint));
       }
@@ -1040,7 +1054,7 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
 
   /*--- Limit solution update to enforce positive volume fraction ---*/
 
-  LimitSolution();
+//  LimitSolution();
 
   /*--- Update the solution ---*/
 
@@ -1479,8 +1493,7 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
 
       /*--- Compute velocity in normal direction (ProjVelcity_i=(v*n)) und substract twice from
             velocity in normal direction: v_r = v - 2 (v*n)n ---*/
-      ProjVelocity_i = 0.0;
-      for (iDim = 0; iDim < nDim; ++iDim) ProjVelocity_i += nodes->GetPrimitive(iPoint,iDim+1) * UnitNormal[iDim];
+      ProjVelocity_i = nodes->GetProjVel(iPoint,UnitNormal);
 
       /*--- Adjustment to v.n due to grid movement. ---*/
       if (dynamic_grid) {
@@ -1535,6 +1548,8 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
   }      // for iVertex
 
 }
+
+
 void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
                                             CSolver **solver_container,
                                             CConfig *config,
@@ -1572,6 +1587,7 @@ void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
     }
   }
 }
+
 void CPTSolver::BC_Euler_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
                          CNumerics* visc_numerics, CConfig* config, unsigned short val_marker) {
 
@@ -1589,8 +1605,11 @@ void CPTSolver::LimitSolution(void) {
   for (iPoint = 0; iPoint < nPointDomain; iPoint++) {
 
     alpha = nodes->GetSolution(iPoint,0);
-    deltaAlpha = min(max(LinSysSol[iPoint*nVar], PT_EPS-alpha), 2*alpha);
+    deltaAlpha = max(LinSysSol[iPoint*nVar], PT_EPS-alpha);
+//    deltaAlpha = min(max(LinSysSol[iPoint*nVar], PT_EPS-alpha), 2*alpha);
     factor = (LinSysSol[iPoint*nVar]) ? deltaAlpha / LinSysSol[iPoint*nVar] : 1.0;
+
+//    if (alpha+LinSysSol[iPoint*nVar] <= PT_EPS) {throw std::runtime_error("error");}
 
     LinSysSol[iPoint*nVar] = deltaAlpha;
 
@@ -1867,13 +1886,13 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
     Cd = Cd_disk;
 
 //  Cd = Cd_sphere;
-  Cd = 24/Re * (1 + 0.15*pow(Re,0.687) + 0.0175/(1+ 4.25e4/pow(Re,1.16)));
+  Cd = (Re) ? 24/Re * (1 + 0.15*pow(Re,0.687) + 0.0175/(1+ 4.25e4/pow(Re,1.16))) : 1.0;
 //  Cd = 24/Re;
 
 
   /*---- Compute residual  ----*/
 
-  su2double tau = (4*rho*d*d) / (3*mu*Re*Cd);
+  su2double tau = (Re) ? (4*rho*d*d) / (3*mu*Re*Cd) : 1.0;
 
   return tau;
 

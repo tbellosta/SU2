@@ -2248,6 +2248,10 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
               numerics[iMGlevel][PT_SOL][conv_term] = new CUpwStegWarm_PT(nDim, nVar_PT, config);
               numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwStegWarm_PT(nDim, nVar_PT, config);
               break;
+            case HLLC:
+              numerics[iMGlevel][PT_SOL][conv_term] = new CUpwHLLC_PT(nDim, nVar_PT, config);
+              numerics[iMGlevel][PT_SOL][conv_bound_term] = new CUpwHLLC_PT(nDim, nVar_PT, config);
+              break;
             default:
               SU2_OMP_MASTER
               SU2_MPI::Error("Invalid upwind scheme for the particle tracking equations.", CURRENT_FUNCTION);

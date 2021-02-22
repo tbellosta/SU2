@@ -33,7 +33,7 @@ class CConv_PT : public CNumerics {
  protected:
 
   su2double *Velocity_i, *Velocity_j, *Proj_Flux_i, *Proj_Flux_j,
-      **Proj_Jac_i, **Proj_Jac_j, *Conservatives_i, *Conservatives_j;
+      **Proj_Jac_i, **Proj_Jac_j, *Conservatives_i, *Conservatives_j, *IntermediateState;
   bool implicit, dynamic_grid;
   unsigned short iDim;
 
@@ -183,6 +183,46 @@ class CUpwFDS_PT : public CConv_PT {
    */
   CUpwFDS_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
   ~CUpwFDS_PT() override = default;
+
+
+  /*!
+   * \brief Compute the scalar upwind flux between two nodes i and j.
+   * \param[out] val_residual - Pointer to the total residual.
+   * \param[out] val_Jacobian_i - Jacobian of the numerical method at node i (implicit computation).
+   * \param[out] val_Jacobian_j - Jacobian of the numerical method at node j (implicit computation).
+   * \param[in] config - Definition of the particular problem.
+   */
+  void ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i, su2double **val_Jacobian_j, CConfig *config) final;
+};
+
+
+/*!
+ * \class CUpwHLLC_PT
+ * \brief Class for doing a scalar upwind solver for the heat convection equation.
+ * \ingroup ConvDiscr
+ * \author T. Bellosta
+ * \version 7.0.7 "Blackbird"
+ */
+class CUpwHLLC_PT : public CConv_PT {
+ protected:
+
+  su2double a2;
+
+  void GetProjFluxPT(const su2double * VolFraction, const su2double * Vel, const su2double *Normal,
+                     su2double* ProjFlux) const;
+
+  void GetProjFluxJacobianPT(const su2double * VolFraction, const su2double * Vel, const su2double *Normal,
+                             su2double** ProjJac) const;
+
+ public:
+  /*!
+   * \brief Constructor of the class.
+   * \param[in] val_nDim - Number of dimensions of the problem.
+   * \param[in] val_nVar - Number of variables of the problem.
+   * \param[in] config - Definition of the particular problem.
+   */
+  CUpwHLLC_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig *config);
+  ~CUpwHLLC_PT() override = default;
 
 
   /*!

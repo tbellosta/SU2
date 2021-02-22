@@ -53,6 +53,8 @@ CConv_PT::CConv_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig* co
 
   Laminar_Viscosity_i = config->GetViscosity_FreeStreamND();
   Laminar_Viscosity_j = config->GetViscosity_FreeStreamND();
+
+  IntermediateState = nullptr;
 }
 
 CConv_PT::~CConv_PT() {
@@ -73,6 +75,8 @@ CConv_PT::~CConv_PT() {
 
   delete [] Proj_Jac_i;
   delete [] Proj_Jac_j;
+
+  delete [] IntermediateState;
 }
 
 
@@ -332,12 +336,16 @@ void CUpwFDS_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacobi
   Density_i = V_i[0];
   Density_j = V_j[0];
 
+
+  Area = 0.0;
   for (iDim = 0; iDim < nDim; iDim++) {
     Velocity_i[iDim] = V_i[iDim+1];
     Velocity_j[iDim] = V_j[iDim+1];
     projVel_i += Velocity_i[iDim]*Normal[iDim];
     projVel_j += Velocity_j[iDim]*Normal[iDim];
+    Area += Normal[iDim]*Normal[iDim];
   }
+  Area = sqrt(Area);
 
   Conservatives_i[0] = Density_i;
   Conservatives_j[0] = Density_j;
@@ -348,17 +356,18 @@ void CUpwFDS_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacobi
   }
 
   uRoe = (sqrt(Density_i)*projVel_i + sqrt(Density_j)*projVel_j) / (sqrt(Density_i) + sqrt(Density_j));
+  uRoe /= Area;
   uRoe = fabs(uRoe);
 
-//  su2double eps = 1e-2;
-//
-//  if (uRoe < eps) uRoe = 0.5*(uRoe*uRoe/eps + eps);
+  su2double eps = 1e-2;
+
+  if (uRoe < eps) uRoe = 0.5*(uRoe*uRoe/eps + eps);
 
   GetProjFluxPT(&Density_i, Velocity_i, Normal, Proj_Flux_i);
   GetProjFluxPT(&Density_j, Velocity_j, Normal, Proj_Flux_j);
 
   for (int iVar = 0; iVar < nVar; ++iVar) {
-    val_residual[iVar] = 0.5 * ((Proj_Flux_i[iVar] + Proj_Flux_j[iVar]) - uRoe * (Conservatives_j[iVar] - Conservatives_i[iVar]));
+    val_residual[iVar] = 0.5 * ((Proj_Flux_i[iVar] + Proj_Flux_j[iVar]) - uRoe * (Conservatives_j[iVar] - Conservatives_i[iVar]) * Area);
   }
 
   if (implicit) {
@@ -382,6 +391,213 @@ void CUpwFDS_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacobi
 }
 
 
+
+
+CUpwHLLC_PT::CUpwHLLC_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) :
+    CConv_PT(val_nDim, val_nVar, config) {
+
+  IntermediateState = new su2double[nVar];
+  a2 = config->GetParticle_Size()*STANDARD_GRAVITY;
+
+}
+
+void CUpwHLLC_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i, su2double **val_Jacobian_j, CConfig *config) {
+
+  su2double projVel_i = 0;
+  su2double projVel_j = 0;
+  su2double uStar, aStar, sL, sM, sR, qL, qR, ratio, aSplit, diffSpeed;
+
+//  const su2double a = sqrt(a2);
+
+  Density_i = V_i[0];
+  Density_j = V_j[0];
+
+//  const su2double aL = sqrt(STANDARD_GRAVITY*Density_i);
+//  const su2double aR = sqrt(STANDARD_GRAVITY*Density_j);
+
+  const su2double aL = 100;
+  const su2double aR = 100;
+
+  Area = 0.0;
+  for (iDim = 0; iDim < nDim; iDim++) {
+    Velocity_i[iDim] = V_i[iDim+1];
+    Velocity_j[iDim] = V_j[iDim+1];
+    Area += Normal[iDim]*Normal[iDim];
+  }
+  Area = sqrt(Area);
+
+  Conservatives_i[0] = Density_i;
+  Conservatives_j[0] = Density_j;
+
+  for (iDim = 0; iDim < nDim; ++iDim) {
+    UnitNormal[iDim] = Normal[iDim] / Area;
+    projVel_i += Velocity_i[iDim]*UnitNormal[iDim];
+    projVel_j += Velocity_j[iDim]*UnitNormal[iDim];
+
+    Conservatives_i[iDim+1] = Density_i*Velocity_i[iDim];
+    Conservatives_j[iDim+1] = Density_j*Velocity_j[iDim];
+  }
+
+  for (int iVar = 0; iVar < nVar; ++iVar) val_residual[iVar] = 0.0;
+
+  aStar =
+      0.5 * (Density_i + Density_j) - 0.25 * (projVel_j - projVel_i) * (Density_i + Density_j) / (aL + aR);
+  uStar =
+      0.5 * (projVel_i + projVel_j) - 0.25 * (Density_j - Density_i) * (aL + aR) / (Density_i + Density_j);
+
+//  aStar = sqrt(Density_i*Density_j)*exp((projVel_i-projVel_j)/(2*a));
+//  uStar = 0.5*(projVel_i+projVel_j) + 0.5*a*log(Density_i/Density_j);
+
+//  qL = (aStar > Density_i) ? sqrt(0.5*(aStar+Density_i)*aStar/pow(Density_i,2)) : 1.0;
+//  qR = (aStar > Density_j) ? sqrt(0.5*(aStar+Density_j)*aStar/pow(Density_j,2)) : 1.0;
+
+  qL = (aStar > Density_i) ? sqrt(aStar/Density_i) : 1.0;
+  qR = (aStar > Density_j) ? sqrt(aStar/Density_j) : 1.0;
+
+  sL = projVel_i - aL * qL;
+  sR = projVel_j + aR * qR;
+  sM = (sL * Density_j * (projVel_j - sR) - sR * Density_i * (projVel_i - sL));
+  if (sM) sM /= (Density_j * (projVel_j - sR) - Density_i * (projVel_i - sL));
+//  sM = uStar;
+
+  if (sL >= 0) {
+    val_residual[0] = Density_i * projVel_i;
+    for (int iVar = 1; iVar < nVar; ++iVar)
+//      val_residual[iVar] = Density_i * projVel_i * Velocity_i[iVar - 1] +  0.5 * STANDARD_GRAVITY * pow(Density_i,2) * UnitNormal[iVar - 1];
+      val_residual[iVar] = Density_i * projVel_i * Velocity_i[iVar - 1] +  Density_i * a2 * UnitNormal[iVar - 1];
+
+    aSplit = Density_i;
+
+  } else if (sM >= 0) {
+
+    diffSpeed = sL- sM;
+    ratio = (sL - projVel_i) / diffSpeed;
+
+    IntermediateState[0] = ratio * Density_i;
+    for (iDim = 0; iDim < nDim; ++iDim) {
+//      IntermediateState[iDim+1] = (Density_i*Velocity_i[iDim]*(sL-projVel_i) + 0.5 * STANDARD_GRAVITY * (pow(IntermediateState[0],2) - pow(Density_i,2))*UnitNormal[iDim]) / diffSpeed;
+      IntermediateState[iDim+1] = (Density_i*Velocity_i[iDim]*(sL-projVel_i) + a2*(IntermediateState[0]-Density_i)*UnitNormal[iDim]) / diffSpeed;
+    }
+
+    val_residual[0] = Density_i * projVel_i;
+    for (int iVar = 1; iVar < nVar; ++iVar)
+//      val_residual[iVar] = Density_i * projVel_i * Velocity_i[iVar - 1] +  0.5 * STANDARD_GRAVITY * pow(Density_i,2) * UnitNormal[iVar - 1];
+      val_residual[iVar] = Density_i * projVel_i * Velocity_i[iVar - 1] +  Density_i * a2 * UnitNormal[iVar - 1];
+
+    val_residual[0] += sL * (IntermediateState[0] - Density_i);
+    for (int iVar = 1; iVar < nVar; ++iVar) {
+      val_residual[iVar] += sL * (IntermediateState[iVar] - Conservatives_i[iVar]);
+    }
+
+    aSplit = IntermediateState[0];
+
+  } else if (sR >= 0) {
+
+    diffSpeed = sR- sM;
+    ratio = (sR - projVel_j) / diffSpeed;
+
+    IntermediateState[0] = ratio * Density_j;
+    for (iDim = 0; iDim < nDim; ++iDim) {
+//      IntermediateState[iDim+1] = (Density_j*Velocity_j[iDim]*(sR-projVel_j) + 0.5 * STANDARD_GRAVITY * (pow(IntermediateState[0],2) - pow(Density_j,2))*UnitNormal[iDim]) / diffSpeed;
+      IntermediateState[iDim+1] = (Density_j*Velocity_j[iDim]*(sR-projVel_j) + a2*(IntermediateState[0]-Density_j)*UnitNormal[iDim]) / diffSpeed;
+    }
+
+    val_residual[0] = Density_j * projVel_j;
+    for (int iVar = 1; iVar < nVar; ++iVar)
+//      val_residual[iVar] = Density_j * projVel_j * Velocity_j[iVar - 1] +  0.5 * STANDARD_GRAVITY * pow(Density_j,2) * UnitNormal[iVar - 1];
+      val_residual[iVar] = Density_j * projVel_j * Velocity_j[iVar - 1] +  Density_j * a2 * UnitNormal[iVar - 1];
+
+    val_residual[0] += sR * (IntermediateState[0] - Density_j);
+    for (int iVar = 1; iVar < nVar; ++iVar) {
+      val_residual[iVar] += sR * (IntermediateState[iVar] - Conservatives_j[iVar]);
+    }
+
+    aSplit = IntermediateState[0];
+
+  } else {
+    val_residual[0] = Density_j * projVel_j;
+    for (int iVar = 1; iVar < nVar; ++iVar)
+//      val_residual[iVar] = Density_j * projVel_j * Velocity_j[iVar - 1] +  0.5 * STANDARD_GRAVITY * pow(Density_j,2) * UnitNormal[iVar - 1];
+      val_residual[iVar] = Density_j * projVel_j * Velocity_j[iVar - 1] +  Density_j * a2 * UnitNormal[iVar - 1];
+
+    aSplit = Density_j;
+  }
+
+  if (aSplit <= 0) {throw std::runtime_error("error");}
+
+  for (int iVar = 0; iVar < nVar; ++iVar) val_residual[iVar] *= Area;
+
+//  for (iDim = 0; iDim < nDim; ++iDim) val_residual[iDim+1] -= a2*aSplit*Normal[iDim];
+
+}
+
+
+void CUpwHLLC_PT::GetProjFluxPT(const su2double* VolFraction, const su2double* Vel, const su2double* Norm,
+                             su2double* ProjFlux) const {
+
+  su2double au = (*VolFraction) * Vel[0];
+  su2double av = (*VolFraction) * Vel[1];
+
+  ProjFlux[0] = au * Norm[0];
+  ProjFlux[1] = (au * Vel[0] + *VolFraction*a2) * Norm[0];
+  ProjFlux[2] = au * Vel[1] * Norm[0];
+
+  ProjFlux[0] += av * Norm[1];
+  ProjFlux[1] += av * Vel[0] * Norm[1];
+  ProjFlux[2] += (av * Vel[1] + *VolFraction*a2) * Norm[1];
+
+  if (nDim == 3) {
+
+    su2double aw = (*VolFraction) * Vel[2];
+
+    ProjFlux[3] = au * Vel[2] * Norm[0];
+
+    ProjFlux[3] += av * Vel[2] * Norm[1];
+
+    ProjFlux[0] += aw * Norm[2];
+    ProjFlux[1] += aw * Vel[0] * Norm[2];
+    ProjFlux[2] += aw * Vel[1] * Norm[2];
+    ProjFlux[3] += (aw * Vel[2] + *VolFraction*a2) * Norm[2];
+
+  }
+
+}
+void CUpwHLLC_PT::GetProjFluxJacobianPT(const su2double* VolFraction, const su2double* Vel, const su2double* Norm,
+                                     su2double** ProjJac) const {
+
+  su2double u = Vel[0];
+  su2double v = Vel[1];
+
+  ProjJac[0][0]  =    0 * Norm[0];   ProjJac[0][1]  =   1 * Norm[0];  ProjJac[0][2]  =   0 * Norm[0];
+  ProjJac[1][0]  = (-u*u + a2) * Norm[0];   ProjJac[1][1]  = 2*u * Norm[0];  ProjJac[1][2]  =   0 * Norm[0];
+  ProjJac[2][0]  = -u*v * Norm[0];   ProjJac[2][1]  =   v * Norm[0];  ProjJac[2][2]  =   u * Norm[0];
+
+  ProjJac[0][0] +=    0 * Norm[1];   ProjJac[0][1] +=   0 * Norm[1];  ProjJac[0][2] +=   1 * Norm[1];
+  ProjJac[1][0] += -u*v * Norm[1];   ProjJac[1][1] +=   v * Norm[1];  ProjJac[1][2] +=   u * Norm[1];
+  ProjJac[2][0] += (-v*v + a2) * Norm[1];   ProjJac[2][1] +=   0 * Norm[1];  ProjJac[2][2] += 2*v * Norm[1];
+
+
+  if (nDim == 3) {
+    su2double w = Vel[2];
+
+    ProjJac[0][3]  =   0 * Norm[0];
+    ProjJac[1][3]  =   0 * Norm[0];
+    ProjJac[2][3]  =   0 * Norm[0];
+    ProjJac[3][0]  = -u*w * Norm[0];   ProjJac[3][1]  = w * Norm[0];   ProjJac[3][2] = 0 * Norm[0];    ProjJac[3][3]  =   u * Norm[0];
+
+    ProjJac[0][3] +=   0 * Norm[1];
+    ProjJac[1][3] +=   0 * Norm[1];
+    ProjJac[2][3] +=   0 * Norm[1];
+    ProjJac[3][0] += -v*w * Norm[1];   ProjJac[3][1] += 0 * Norm[1];   ProjJac[3][2] += w * Norm[1];   ProjJac[3][3] +=   v * Norm[1];
+
+    ProjJac[0][0] +=    0 * Norm[2];   ProjJac[0][1] += 0 * Norm[2];   ProjJac[0][2] += 0 * Norm[2];   ProjJac[0][3] +=   1 * Norm[2];
+    ProjJac[1][0] += -u*w * Norm[2];   ProjJac[1][1] += w * Norm[2];   ProjJac[1][2] += 0 * Norm[2];   ProjJac[1][3] +=   u * Norm[2];
+    ProjJac[2][0] += -v*w * Norm[2];   ProjJac[2][1] += 0 * Norm[2];   ProjJac[2][2] += w * Norm[2];   ProjJac[2][3] +=   v * Norm[2];
+    ProjJac[3][0] += (-w*w + a2) * Norm[2];   ProjJac[3][1] += 0 * Norm[2];   ProjJac[3][2] += 0 * Norm[2];   ProjJac[3][3] += 2*w * Norm[2];
+  }
+
+
+}
 
 void CSourceDrag::ComputeResidual(su2double* val_residual, su2double** val_Jacobian_i, su2double** val_Jacobian_j,
                                   CConfig* config) {
