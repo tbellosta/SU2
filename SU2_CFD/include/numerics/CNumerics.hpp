@@ -230,6 +230,7 @@ protected:
   su2double *Eig_Val, *Barycentric_Coord, *New_Coord;
 
   su2double ParticleRelaxationTime;
+  su2double RelaxationFactor;
 
 public:
   /*!
@@ -1395,6 +1396,9 @@ public:
 
   inline void SetParticleTau(su2double tau) {ParticleRelaxationTime = tau;}
   inline su2double GetParticleTau() {return ParticleRelaxationTime;}
+
+  inline void SetRelaxationConstant(su2double a) {RelaxationFactor = a;}
+  inline su2double GetRelaxationConstant() {return RelaxationFactor;}
 
 };
 

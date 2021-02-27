@@ -57,8 +57,6 @@ CConv_PT::CConv_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig* co
 
   IntermediateState = nullptr;
 
-  Gamma = 100;
-
 }
 
 CConv_PT::~CConv_PT() {
@@ -92,7 +90,7 @@ void CConv_PT::GetProjFluxPT(const su2double* VolFraction, const su2double* Vel,
   su2double q = GeometryToolbox::DotProduct(nDim,Vel,Norm);
   su2double aq = (*VolFraction)*q;
 
-  const su2double a = Gamma;
+  const su2double a = RelaxationFactor;
 
   ProjFlux[0] = aq;
   ProjFlux[1] = aq*u + P*Norm[0];
@@ -112,7 +110,7 @@ void CConv_PT::GetProjFluxJacobianPT(const su2double* VolFraction, const su2doub
   su2double q = GeometryToolbox::DotProduct(nDim,Vel,Norm);
   su2double aq = (*VolFraction)*q;
 
-  const su2double a = Gamma;
+  const su2double a = RelaxationFactor;
 
   ProjJac[0][0] = 0;  ProjJac[0][1] = Norm[0];  ProjJac[0][2] = Norm[1];  ProjJac[0][nDim+1] = 0;
   ProjJac[1][0] = -u*q-P*Norm[0]/alpha;  ProjJac[1][1] = q+u*Norm[0];  ProjJac[1][2] = u*Norm[1];  ProjJac[1][nDim+1] = Norm[0]/alpha;
@@ -216,7 +214,7 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
                                      su2double **val_Jacobian_j, CConfig *config) {
 #define MAXNDIM 3
 
-  const su2double a = Gamma;
+  const su2double a = RelaxationFactor;
 
   su2double projVel_i = 0;
   su2double projVel_j = 0;
@@ -246,7 +244,7 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
   pStar = (Pressure_i + Pressure_j + a*(projVel_i-projVel_j)) / 2;
 
   su2double aa = max(Density_i*(projVel_i-projVel_j)*0.5,Density_j*(projVel_i-projVel_j)*0.5);
-  if (Gamma < aa) cout << "a < threshold: " << aa << endl;
+  if (RelaxationFactor < aa) cout << "a < threshold: " << aa << endl;
 
   if (sL >= 0) {
     GetProjFluxPT(&Density_i, Velocity_i, &Pressure_i, val_residual, UnitNormal);

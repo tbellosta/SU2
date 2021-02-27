@@ -507,7 +507,8 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
   CNumerics* numerics = numerics_container[CONV_TERM];
 
   su2double *V_i, *V_j, *Sol_i, *Sol_i_Corrected, *Sol_j, *Sol_j_Corrected, **Gradient_i, **Gradient_j, Project_Grad_i, Project_Grad_j,
-      **Temp_i_Grad, **Temp_j_Grad, Project_Temp_i_Grad, Project_Temp_j_Grad;
+      UnitNormal[3], Relax, Area;
+  const su2double *Normal;
 
   su2double MUSCLSol_i[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
   su2double MUSCLSol_j[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
@@ -527,7 +528,12 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
       /*--- Points in edge ---*/
       iPoint = geometry->edges->GetNode(iEdge,0);
       jPoint = geometry->edges->GetNode(iEdge,1);
-      numerics->SetNormal(geometry->edges->GetNormal(iEdge));
+
+      Normal = geometry->edges->GetNormal(iEdge);
+      numerics->SetNormal(Normal);
+      Area = GeometryToolbox::Norm(nDim,geometry->edges->GetNormal(iEdge));
+
+      for (iDim = 0; iDim < nDim; ++iDim) UnitNormal[iDim] = Normal[iDim] / Area;
 
       V_i = nodes->GetPrimitive(iPoint);
       V_j = nodes->GetPrimitive(jPoint);
@@ -601,13 +607,19 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
 //        neg_alpha_i = nodes->GetNon_Physical(iPoint);
 //        neg_alpha_j = nodes->GetNon_Physical(jPoint);
 
-        numerics->SetPrimitive(neg_alpha_i? V_i : MUSCLSol_i,  neg_alpha_j? V_j : MUSCLSol_j);
+//        numerics->SetPrimitive(neg_alpha_i? V_i : MUSCLSol_i,  neg_alpha_j? V_j : MUSCLSol_j);
+        V_i = (neg_alpha_i) ? V_i : MUSCLSol_i;
+        V_j = (neg_alpha_j) ? V_j : MUSCLSol_j;
 
       }
-      else {
+//      else {
+//        numerics->SetPrimitive(V_i, V_j);
+//      }
 
-        numerics->SetPrimitive(V_i, V_j);
-      }
+      numerics->SetPrimitive(V_i, V_j);
+
+      Relax = ComputeRelaxationConstant(V_i, V_j, UnitNormal);
+      numerics->SetRelaxationConstant(Relax);
 
       numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
 
@@ -732,7 +744,7 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
 
   const su2double *Normal = nullptr;
   su2double Area, Vol, Mean_ProjVel, Lambda, Local_Delta_Time, Local_Delta_Time_Visc;
-  su2double Mean_Density, Lambda_1, Lambda_2, Unitnormal[3];
+  su2double Mean_Density, Lambda_1, Lambda_2, Unitnormal[3], Relax;
   unsigned long iEdge, iVertex, iPoint, jPoint;
   unsigned short iDim, iMarker;
 
@@ -753,6 +765,10 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
       Normal = geometry->edges->GetNormal(iEdge);
       Area = GeometryToolbox::Norm(nDim,Normal);
 
+      for (iDim = 0; iDim < nDim; ++iDim) Unitnormal[iDim] = Normal[iDim] / Area;
+
+      Relax = ComputeRelaxationConstant(nodes->GetPrimitive(iPoint), nodes->GetPrimitive(jPoint), Unitnormal);
+
       /*--- Mean Values ---*/
 
       Mean_ProjVel = 0.5 * (nodes->GetProjVel(iPoint,Normal) + nodes->GetProjVel(jPoint,Normal));
@@ -770,7 +786,7 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
 
       /*--- Inviscid contribution ---*/
 
-      Lambda = fabs(Mean_ProjVel) + Area*relaxConstant/Mean_Density;
+      Lambda = fabs(Mean_ProjVel) + Area*Relax/Mean_Density;
       nodes->AddMax_Lambda_Inv(iPoint,Lambda);
     }
 
@@ -792,6 +808,10 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
         Normal = geometry->vertex[iMarker][iVertex]->GetNormal();
         Area = GeometryToolbox::Norm(nDim,Normal);
 
+        for (iDim = 0; iDim < nDim; ++iDim) Unitnormal[iDim] = Normal[iDim] / Area;
+
+        Relax = ComputeRelaxationConstant(nodes->GetPrimitive(iPoint), nodes->GetPrimitive(iPoint), Unitnormal);
+
         /*--- Mean Values ---*/
 
         Mean_ProjVel = nodes->GetProjVel(iPoint,Normal);
@@ -808,7 +828,7 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
 
         /*--- Inviscid contribution ---*/
 
-        Lambda = fabs(Mean_ProjVel) + Area*relaxConstant/Mean_Density;
+        Lambda = fabs(Mean_ProjVel) + Area*Relax/Mean_Density;
         nodes->AddMax_Lambda_Inv(iPoint,Lambda);
 
       }
@@ -1246,7 +1266,7 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
 
   unsigned short iDim, iVar;
   unsigned long iVertex, iPoint, Point_Normal, total_index;
-  su2double V_boundary[5], *V_domain, V_Infty[5], Qn_domain, Qn_boundary, u2, soundSpeed, Area;
+  su2double V_boundary[5], *V_domain, V_Infty[5], Qn_domain, Qn_boundary, u2, soundSpeed, Area, Relax;
 
   bool implicit             = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
 
@@ -1293,6 +1313,10 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
         conv_numerics->SetGridVel(geometry->nodes->GetGridVel(iPoint), geometry->nodes->GetGridVel(iPoint));
 
       BoundaryPrimitive(V_domain, V_Infty, UnitNormal, V_boundary);
+
+      Relax = ComputeRelaxationConstant(V_domain, V_Infty, UnitNormal);
+      conv_numerics->SetRelaxationConstant(Relax);
+
 
       //      su2double VV[3];
 //      VV[0] = V_Infty[0];
@@ -1437,7 +1461,8 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
   bool preprocessed = false;
 
   /*--- Allocation of variables necessary for convective fluxes. ---*/
-  su2double Area, ProjVelocity_i, V_boundary[5], V_domain[5], Normal[MAXNDIM] = {0.0}, UnitNormal[MAXNDIM] = {0.0}, V_wall[5];
+  su2double Area, ProjVelocity_i, V_boundary[5], V_domain[5], Normal[MAXNDIM] = {0.0}, UnitNormal[MAXNDIM] = {0.0},
+                                                              V_wall[5], Relax;
 
   /*--- Loop over all the vertices on this boundary marker. ---*/
 
@@ -1517,6 +1542,9 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
       } else {
         BoundaryPrimitive(V_domain, V_wall, UnitNormal, V_boundary);
       }
+
+      Relax = ComputeRelaxationConstant(V_domain, V_wall, UnitNormal);
+      conv_numerics->SetRelaxationConstant(Relax);
 
       /*--- Set Primitive and Secondary for numerics class. ---*/
       conv_numerics->SetPrimitive(V_domain, V_boundary);
@@ -2028,7 +2056,7 @@ void CPTSolver::SolveRelaxation(CGeometry* geometry, CSolver** solver_container,
 }
 void CPTSolver::BoundaryPrimitive(const su2double* V_domain, const su2double* V_boundary, const su2double* Normal, su2double* out) {
 
-  su2double c = relaxConstant;
+  su2double c = ComputeRelaxationConstant(V_domain,V_boundary,Normal);
 
   su2double q;
   int i;
@@ -2181,5 +2209,31 @@ void CPTSolver::BoundaryPrimitive(const su2double* V_domain, const su2double* V_
   out[1] = V_domain[1] + dV[1] / V_domain[0];
   out[2] = V_domain[2] + dV[2] / V_domain[0];
   out[3] = V_domain[3] + dV[3] / V_domain[0];
+
+}
+
+su2double CPTSolver::ComputeRelaxationConstant(const su2double* Prim_i, const su2double* Prim_j,
+                                               const su2double* UnitNormal) {
+
+  const su2double eps = 1.0e-7;
+  const su2double C = 2;
+
+  su2double ProjVel_i, ProjVel_j, Density_i, Density_j;
+
+  su2double out;
+
+  Density_i = Prim_i[0];
+  Density_j = Prim_j[0];
+
+  ProjVel_i = GeometryToolbox::DotProduct(nDim,&(Prim_i[1]),UnitNormal);
+  ProjVel_j = GeometryToolbox::DotProduct(nDim,&(Prim_j[1]),UnitNormal);
+
+  if (ProjVel_i >= ProjVel_j) {
+    out = max(0.0, max(Density_i,Density_j)*0.5*(Density_i-Density_j));
+  } else {
+    out = 0.8*min(eps, 0.5*min(Density_i,Density_j)*C);
+  }
+
+  return out;
 
 }

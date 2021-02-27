@@ -62,6 +62,8 @@ class CPTSolver final : public CSolver {
 
   void SetPrimitiveVariables(CGeometry *geometry, CConfig *config);
 
+  su2double ComputeRelaxationConstant(const su2double* Prim_i, const su2double* Prim_j, const su2double* UnitNormal);
+
   void SetCentered_Dissipation_Sensor(CGeometry *geometry, const CConfig *config);
 
   void SetMax_Eigenvalue(CGeometry *geometry, CConfig *config);
