@@ -1336,7 +1336,7 @@ void CDriver::Solver_Restart(CSolver ***solver, CGeometry **geometry,
     if (heat) {
       solver[MESH_0][HEAT_SOL]->LoadRestart(geometry, solver, config, val_iter, update_geo);
     }
-    if (pt) {
+    if (pt && config->GetRestart_PT()) {
       solver[MESH_0][PT_SOL]->LoadRestart(geometry, solver, config, val_iter, update_geo);
     }
   }

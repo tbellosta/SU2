@@ -41,11 +41,13 @@
  * \version 7.0.7 "Blackbird"
  */
 class CPTSolver final : public CSolver {
+
  protected:
   unsigned short nVarFlow, nMarker, CurrentMesh;
   su2double **HeatFlux, AllBound_HeatFlux, AllBound_AverageT,
       *Primitive, *Primitive_i, *Primitive_j;
   su2double V_inf;
+  su2double relaxConstant;
 
   su2double **CollectionEfficiency;
 
@@ -67,6 +69,10 @@ class CPTSolver final : public CSolver {
   su2double computeRelaxationTime(CSolver** solver_container, unsigned long iPoint);
 
   void PrintVerificationError(const CConfig *config) const;
+
+  void SolveRelaxation(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh);
+
+  void BoundaryPrimitive(const su2double *V_domain, const su2double *V_boundary, const su2double *Normal, su2double *V_);
 
  public:
 

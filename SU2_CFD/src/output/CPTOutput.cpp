@@ -133,18 +133,21 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
   AddVolumeOutput("ALPHA", "alpha", "SOLUTION", "Volume fraction");
   AddVolumeOutput("ALPHA-U", "alphaU", "SOLUTION", "Momentum-X");
   AddVolumeOutput("ALPHA-V", "alphaV", "SOLUTION", "Momentum-Y");
+  AddVolumeOutput("ALPHA-E", "alphaE", "SOLUTION", "Energy");
   if (nDim == 3) AddVolumeOutput("ALPHA-W", "alphaW", "SOLUTION", "Momentum-Z");
 
   // PRIMITIVES
   AddVolumeOutput("PART-U", "Up", "PRIMITIVE", "Velocity-X");
   AddVolumeOutput("PART-V", "Vp", "PRIMITIVE", "Velocity-Y");
   AddVolumeOutput("PART-RE", "Re", "PRIMITIVE", "Reynolds-P");
+  AddVolumeOutput("PART-e", "e", "PRIMITIVE", "Internal_energy");
   if (nDim == 3) AddVolumeOutput("PART-W", "Wp", "PRIMITIVE", "Velocity-Z");
 
   // Residuals
   AddVolumeOutput("RES_ALPHA", "Residual_alpha", "RESIDUAL", "Residual of the volume fraction");
   AddVolumeOutput("RES_ALPHA-U", "Residual_alphaU", "RESIDUAL", "Residual of the MOMENTUM-X");
   AddVolumeOutput("RES_ALPHA-V", "Residual_alphaV", "RESIDUAL", "Residual of the MOMENTUM-Y");
+  AddVolumeOutput("RES_ALPHA-E", "Residual_alphaE", "RESIDUAL", "Residual of the ENERGY");
   if (nDim == 3) AddVolumeOutput("RES_ALPHA-W", "Residual_alphaW", "RESIDUAL", "Residual of the MOMENTUM-Z");
 
   // Mesh quality metrics, computed in CPhysicalGeometry::ComputeMeshQualityStatistics.
@@ -159,10 +162,10 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
 
 
   // LIMITERS
-  if (config->GetKind_SlopeLimit_PT() != NO_LIMITER) {
-    AddVolumeOutput("LIM-U", "limU", "LIMITERS", "Limiter-U");
-    AddVolumeOutput("LIM-V", "limV", "LIMITERS", "Limiter-V");
-    AddVolumeOutput("LIM-A", "limA", "LIMITERS", "Limiter-alpha");
+  if (config->GetKind_SlopeLimit_PT() != NO_LIMITER && config->GetMUSCL_PT()) {
+    AddVolumeOutput("LIM-U", "limU", "LIMITER", "Limiter-U");
+    AddVolumeOutput("LIM-V", "limV", "LIMITER", "Limiter-V");
+    AddVolumeOutput("LIM-A", "limA", "LIMITER", "Limiter-alpha");
     if (nDim == 3) AddVolumeOutput("LIM-W", "limW", "LIMITERS", "Limiter-W");
   }
 
@@ -185,17 +188,20 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
   SetVolumeOutputValue("ALPHA", iPoint, Node_PT->GetSolution(iPoint, 0));
   SetVolumeOutputValue("ALPHA-U", iPoint, Node_PT->GetSolution(iPoint, 1));
   SetVolumeOutputValue("ALPHA-V", iPoint, Node_PT->GetSolution(iPoint, 2));
+  SetVolumeOutputValue("ALPHA-E", iPoint, Node_PT->GetSolution(iPoint, nDim+1));
   if (nDim == 3) SetVolumeOutputValue("ALPHA-W", iPoint, Node_PT->GetSolution(iPoint, 3));
 
   // PRIMITIVES
   SetVolumeOutputValue("PART-U", iPoint, Node_PT->GetPrimitive(iPoint, 1));
   SetVolumeOutputValue("PART-V", iPoint, Node_PT->GetPrimitive(iPoint, 2));
+  SetVolumeOutputValue("PART-e", iPoint, Node_PT->GetPrimitive(iPoint, nDim+1));
   if (nDim == 3) SetVolumeOutputValue("PART-W", iPoint, Node_PT->GetPrimitive(iPoint, 3));
 
   // Residuals
   SetVolumeOutputValue("RES_ALPHA", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 0));
   SetVolumeOutputValue("RES_ALPHA-U", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 1));
   SetVolumeOutputValue("RES_ALPHA-V", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 2));
+  SetVolumeOutputValue("RES_ALPHA-E", iPoint, solver[PT_SOL]->LinSysRes(iPoint, nDim+1));
 //  SetVolumeOutputValue("RES_ALPHA-U", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,0));
 //  SetVolumeOutputValue("RES_ALPHA-V", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,1));
   if (nDim == 3) SetVolumeOutputValue("RES_ALPHA-W", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 3));
@@ -227,7 +233,7 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
   if (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED)
     SetVolumeOutputValue("SENSOR",  iPoint, Node_PT->GetSensor(iPoint));
 
-  if (config->GetKind_SlopeLimit_PT() != NO_LIMITER) {
+  if (config->GetKind_SlopeLimit_PT() != NO_LIMITER && config->GetMUSCL_PT()) {
     SetVolumeOutputValue("LIM-U", iPoint, Node_PT->GetLimiter_Primitive(iPoint,1));
     SetVolumeOutputValue("LIM-V", iPoint, Node_PT->GetLimiter_Primitive(iPoint,2));
     SetVolumeOutputValue("LIM-A", iPoint, Node_PT->GetLimiter_Primitive(iPoint,0));

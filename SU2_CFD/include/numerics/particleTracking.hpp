@@ -61,11 +61,11 @@ class CConv_PT : public CNumerics {
    */
    void ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i, su2double **val_Jacobian_j, CConfig *config) override = 0;
 
-   void GetProjFluxPT(const su2double * VolFraction, const su2double * Vel, const su2double *Normal,
-                      su2double* ProjFlux) const;
+   void GetProjFluxPT(const su2double* VolFraction, const su2double* Vel, const su2double* Pi, su2double* ProjFlux,
+                      const su2double* Norm) const;
 
-  void GetProjFluxJacobianPT(const su2double * VolFraction, const su2double * Vel, const su2double *Normal,
-                              su2double** ProjJac) const;
+   void GetProjFluxJacobianPT(const su2double* VolFraction, const su2double* Vel, const su2double* Pi,
+                              const su2double* Norm, su2double** ProjJac) const;
 
 };
 
@@ -207,12 +207,6 @@ class CUpwHLLC_PT : public CConv_PT {
  protected:
 
   su2double a2;
-
-  void GetProjFluxPT(const su2double * VolFraction, const su2double * Vel, const su2double *Normal,
-                     su2double* ProjFlux) const;
-
-  void GetProjFluxJacobianPT(const su2double * VolFraction, const su2double * Vel, const su2double *Normal,
-                             su2double** ProjJac) const;
 
  public:
   /*!

@@ -27,6 +27,7 @@
 
 
 #include "../../include/variables/CPTVariable.hpp"
+#include "../../../Common/include/toolboxes/geometry_toolbox.hpp"
 
 CPTVariable::CPTVariable(su2double volumeFraction, su2double* velocity, unsigned long npoint, unsigned long ndim,
                          unsigned long nvar, CConfig* config)
@@ -40,14 +41,13 @@ CPTVariable::CPTVariable(su2double volumeFraction, su2double* velocity, unsigned
   nSecondaryVar = 1;
 
   /*--- Initialization of PT variables ---*/
-  su2double val_solution[4] = {volumeFraction, velocity[0], velocity[1], su2double(1)};
-  if(nDim==3) val_solution[3] = velocity[2];
-  su2double  wl[4] = {0.008, 0.008*1, 0, 0};
-//  su2double  wr[4] = {0.008, 0.008*2, 0, 0};
+  su2double val_solution[5] = {volumeFraction, volumeFraction*velocity[0], volumeFraction*velocity[1], 0.0, 0.0};
+  if(nDim==3) val_solution[3] = volumeFraction*velocity[2];
+
 
   for (int iPoint = 0; iPoint < nPoint; ++iPoint)
     for (int iVar = 0; iVar < nVar; ++iVar)
-      Solution(iPoint,iVar) = wl[iVar];
+      Solution(iPoint,iVar) = val_solution[iVar];
 
   Solution_Old = Solution;
 
