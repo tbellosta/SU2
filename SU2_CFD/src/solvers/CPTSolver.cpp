@@ -55,8 +55,8 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
 
   /*--- Dimension of the problem  ---*/
 
-  /*--- alpha, alpha*u, alpha*E ---*/
-  nVar = 4;
+  /*--- alpha, alpha*u---*/
+  nVar = 3;
   if (nDim == 3) nVar++;
   nPoint = geometry->GetnPoint();
   nPointDomain = geometry->GetnPointDomain();
@@ -232,10 +232,7 @@ void CPTSolver:: Preprocessing(CGeometry *geometry, CSolver **solver_container, 
   bool limiter          = (config->GetKind_SlopeLimit_PT() != NO_LIMITER) && (InnerIter <= config->GetLimiterIter());
   bool van_albada       = config->GetKind_SlopeLimit_PT() == VAN_ALBADA_EDGE;
 
-//  for (iPoint = 0; iPoint < nPoint; iPoint ++) {
-//    /*--- Initialize the residual vector ---*/
-//    LinSysRes.SetBlock_Zero(iPoint);
-//  }
+
   LinSysRes.SetValZero();
 
   /*--- Initialize the Jacobian matrices ---*/
@@ -275,8 +272,6 @@ void CPTSolver:: Preprocessing(CGeometry *geometry, CSolver **solver_container, 
 void CPTSolver::Postprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh) {
 
   computeCollectionEfficiency(geometry,solver_container,config,iMesh);
-
-  SolveRelaxation(geometry, solver_container, config, iMesh);
 
 //  SolveSourceSplitting(geometry, solver_container, config);
 }
@@ -524,9 +519,9 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
       UnitNormal[3], Relax, Area;
   const su2double *Normal;
 
-  su2double MUSCLSol_i[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
-  su2double MUSCLSol_j[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
-  su2double Sol_zero[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+  su2double MUSCLSol_i[4] = {0.0, 0.0, 0.0, 0.0};
+  su2double MUSCLSol_j[4] = {0.0, 0.0, 0.0, 0.0};
+  su2double Sol_zero[4] = {0.0, 0.0, 0.0, 0.0};
 
 
   unsigned short iDim, iVar;
@@ -568,7 +563,7 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
         }
 
         /*Loop to correct the PT variables*/
-        for (iVar = 0; iVar < nVar-1; iVar++) {
+        for (iVar = 0; iVar < nVar; iVar++) {
 
           /*Apply the Gradient to get the right solution value on the edge */
           Project_Grad_i = 0.0; Project_Grad_j = 0.0;
@@ -579,23 +574,13 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
 
           /* Van Albada slope limiter */
           V_cent = V_j[iVar] - V_i[iVar];
-//          V_upw_i = 2*Project_Grad_i - V_cent;
-//          V_upw_j = 2*Project_Grad_j - V_cent;
 
           if (limiter) {
-            /*--- beta values: 0 gradient extrapolation, -1 for MUSCL extrapolation, 0.5 3rd order extrapolation at face, 1/3 3rd order approximation to the derivative at the node ---*/
-            const su2double beta = 0.0;
             if (van_albada) {
-
-              //          Limiter_i = fmax(0.0, ( fabs(V_cent * V_upw_i) +  V_cent * V_upw_i + EPS) / (pow(V_cent,2) + pow(V_upw_i,2) + EPS));
-              //          Limiter_j = fmax(0.0, ( fabs(V_cent * V_upw_j) +  V_cent * V_upw_j + EPS) / (pow(V_cent,2) + pow(V_upw_j,2) + EPS));
 
               Limiter_i[iVar] = V_cent * (2.0 * Project_Grad_i + V_cent) / (4 * pow(Project_Grad_i, 2) + pow(V_cent, 2) + EPS);
               Limiter_j[iVar] = V_cent * (2.0 * Project_Grad_j + V_cent) / (4 * pow(Project_Grad_j, 2) + pow(V_cent, 2) + EPS);
             }
-
-//            MUSCLSol_i[iVar] = V_i[iVar] + 0.25 * Limiter_i[iVar] * ((1-beta*Limiter_i[iVar])*V_upw_i + (1+beta*Limiter_i[iVar])*V_cent);
-//            MUSCLSol_j[iVar] = V_j[iVar] - 0.25 * Limiter_j[iVar] * ((1-beta*Limiter_j[iVar])*V_upw_j + (1+beta*Limiter_j[iVar])*V_cent);
 
             MUSCLSol_i[iVar] = V_i[iVar] + Limiter_i[iVar] * Project_Grad_i;
             MUSCLSol_j[iVar] = V_j[iVar] - Limiter_j[iVar] * Project_Grad_j;
@@ -622,21 +607,14 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
         nodes->SetNon_Physical(jPoint, neg_alpha_j);
 
 
-        /*--- Get updated state, in case the point recovered after the set. ---*/
-//        neg_alpha_i = nodes->GetNon_Physical(iPoint);
-//        neg_alpha_j = nodes->GetNon_Physical(jPoint);
-
 //        numerics->SetPrimitive(neg_alpha_i? V_i : MUSCLSol_i,  neg_alpha_j? V_j : MUSCLSol_j);
         V_i = (neg_alpha_i) ? V_i : MUSCLSol_i;
         V_j = (neg_alpha_j) ? V_j : MUSCLSol_j;
 
-        V_i = (small_alpha_i) ? nodes->GetPrimitive(iPoint) : V_i;
-        V_j = (small_alpha_j) ? nodes->GetPrimitive(jPoint) : V_j;
+//        V_i = (small_alpha_i) ? nodes->GetPrimitive(iPoint) : V_i;
+//        V_j = (small_alpha_j) ? nodes->GetPrimitive(jPoint) : V_j;
 
       }
-//      else {
-//        numerics->SetPrimitive(V_i, V_j);
-//      }
 
       numerics->SetPrimitive(V_i, V_j);
 
@@ -1172,7 +1150,6 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
           solDOF[0] = 1.0;
 
           for (int iDim = 0; iDim < nDim; ++iDim) solDOF[iDim+1] = 1.0 * config->GetVelocity_FreeStream()[iDim] / FreeStreamUMag;
-          solDOF[nDim+1] = 0.0;
 
 //          if (geometry[iMesh]->nodes->GetWall_Distance(iPoint) <= 0.01) {
 //            solDOF[0] = 1e-4;
@@ -1291,7 +1268,7 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
 
   unsigned short iDim, iVar;
   unsigned long iVertex, iPoint, Point_Normal, total_index;
-  su2double V_boundary[5], *V_domain, V_Infty[5], Qn_domain, Qn_boundary, u2, soundSpeed, Area, Relax;
+  su2double V_boundary[4], *V_domain, V_Infty[4], Qn_domain, Qn_boundary, u2, soundSpeed, Area, Relax;
 
   bool implicit             = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
 
@@ -1301,7 +1278,6 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
   for (iDim = 0; iDim < nDim; ++iDim) {
     V_Infty[iDim+1] = config->GetVelocity_FreeStream()[iDim] / FreeStreamUMag;
   }
-  V_Infty[nDim+1] = 0.0;
 
   su2double time = config->GetPhysicalTime();
 
@@ -1492,8 +1468,8 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
   bool preprocessed = false;
 
   /*--- Allocation of variables necessary for convective fluxes. ---*/
-  su2double Area, ProjVelocity_i, V_boundary[5], V_domain[5], Normal[MAXNDIM] = {0.0}, UnitNormal[MAXNDIM] = {0.0},
-                                                              V_wall[5], Relax;
+  su2double Area, ProjVelocity_i, V_boundary[4], V_domain[4], Normal[MAXNDIM] = {0.0}, UnitNormal[MAXNDIM] = {0.0},
+                                                              V_wall[4], Relax;
 
   /*--- Loop over all the vertices on this boundary marker. ---*/
 
@@ -1553,7 +1529,6 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
             normal direction is substracted twice. ---*/
       for (iVar = 0; iVar < nVar; iVar++) V_boundary[iVar] = V_domain[iVar];
       for (iVar = 0; iVar < nVar; iVar++) V_wall[iVar] = V_domain[iVar];
-      V_wall[nDim+1] = 0.0;
 
 
       /*--- Compute velocity in normal direction (ProjVelcity_i=(v*n)) und substract twice from
@@ -1719,7 +1694,7 @@ void CPTSolver::LimitSolution(void) {
 void CPTSolver::SetPrimitiveVariables(CGeometry *geometry, CConfig *config) {
 
   su2double alpha;
-  su2double Sol_zero[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+  su2double Sol_zero[4] = {0.0, 0.0, 0.0, 0.0};
 
   for (unsigned long iPoint = 0; iPoint < nPoint; iPoint ++) {
 
@@ -2095,42 +2070,21 @@ void CPTSolver::ComputeVerificationError(CGeometry* geometry, CConfig* config) {
   }
 
 }
-void CPTSolver::SolveRelaxation(CGeometry* geometry, CSolver** solver_container, CConfig* config,
-                                unsigned short iMesh) {
 
-  unsigned long iPoint;
 
-//  su2double alpha;
-
-  /*--- Update the solution ---*/
-
-  for (iPoint = 0; iPoint < nPoint; iPoint++) {
-    nodes->SetSolution(iPoint, nDim+1, 0.0);
-
-//    alpha = nodes->GetSolution(iPoint,0);
-//    if (alpha < 1e-4) {
-//      for (int iDim = 0; iDim < nDim; ++iDim) {
-//        nodes->SetSolution(iPoint,iDim+1,solver_container[FLOW_SOL]->GetNodes()->GetPrimitive(iPoint,iDim+1)*alpha);
-//      }
-//    }
-
-  }
-
-  for (unsigned short iPeriodic = 1; iPeriodic <= config->GetnMarker_Periodic()/2; iPeriodic++) {
-    InitiatePeriodicComms(geometry, config, iPeriodic, PERIODIC_IMPLICIT);
-    CompletePeriodicComms(geometry, config, iPeriodic, PERIODIC_IMPLICIT);
-  }
-
-  /*--- MPI solution ---*/
-
-  InitiateComms(geometry, config, SOLUTION);
-  CompleteComms(geometry, config, SOLUTION);
-
-}
-void CPTSolver::BoundaryPrimitive(const su2double* V_domain, const su2double* V_boundary, const su2double* Normal,
+void CPTSolver::BoundaryPrimitive(const su2double* V_dom, const su2double* V_bound, const su2double* Normal,
                                   const su2double& relaxFactor, su2double* out) {
 
   su2double c = relaxFactor;
+  su2double V_domain[4] = {0.0};
+  su2double V_boundary[4] = {0.0};
+
+  for (int iVar = 0; iVar < nVar; ++iVar) {
+    V_domain[iVar] = V_dom[iVar];
+    V_boundary[iVar] = V_bound[iVar];
+  }
+  V_domain[nDim+1] = 0.0;
+  V_boundary[nDim+1] = 0.0;
 
   su2double q;
   int i;
@@ -2282,14 +2236,14 @@ void CPTSolver::BoundaryPrimitive(const su2double* V_domain, const su2double* V_
   out[0] = V_domain[0] + dV[0];
   out[1] = V_domain[1] + dV[1] / V_domain[0];
   out[2] = V_domain[2] + dV[2] / V_domain[0];
-  out[3] = V_domain[3] + dV[3] / V_domain[0];
+//  out[3] = V_domain[3] + dV[3] / V_domain[0];
 
 }
 
 su2double CPTSolver::ComputeRelaxationConstant(const su2double* Prim_i, const su2double* Prim_j,
                                                const su2double* UnitNormal) {
 
-  const su2double eps = 1e-2;
+  const su2double eps = 1;
   const su2double C = 1e6;
 
   su2double ProjVel_i, ProjVel_j, Density_i, Density_j;
@@ -2303,7 +2257,7 @@ su2double CPTSolver::ComputeRelaxationConstant(const su2double* Prim_i, const su
   ProjVel_j = GeometryToolbox::DotProduct(nDim,&(Prim_j[1]),UnitNormal);
 
   if (ProjVel_i > ProjVel_j) {
-    out = max(0.0, 10*max(Density_i,Density_j)*0.5*(ProjVel_i-ProjVel_j));
+    out = max(0.0, 2*max(Density_i,Density_j)*0.5*(ProjVel_i-ProjVel_j));
   } else {
 //    out = 0.5*min(eps, FreestreamLWC * 0.5*min(Density_i,Density_j)*(C+ProjVel_i-ProjVel_j));
     out = 0.5*min(eps, 0.5*min(Density_i,Density_j)*(2.0));

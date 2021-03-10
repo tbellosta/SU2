@@ -2225,8 +2225,8 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
     /*--- Definition of the viscous scheme for each equation and mesh level ---*/
     for (iMGlevel = 0; iMGlevel <= config->GetnMGLevels(); iMGlevel++) {
 
-        numerics[iMGlevel][PT_SOL][visc_term] = new CAvgGradCorrected_PT(nDim, nVar_PT, config);
-        numerics[iMGlevel][PT_SOL][visc_bound_term] = new CAvgGradCorrected_PT(nDim, nVar_PT, config);
+//        numerics[iMGlevel][PT_SOL][visc_term] = new CAvgGradCorrected_PT(nDim, nVar_PT, config);
+//        numerics[iMGlevel][PT_SOL][visc_bound_term] = new CAvgGradCorrected_PT(nDim, nVar_PT, config);
 
       switch (config->GetKind_ConvNumScheme_PT()) {
 

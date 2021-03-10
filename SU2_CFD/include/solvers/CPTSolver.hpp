@@ -74,7 +74,6 @@ class CPTSolver final : public CSolver {
 
   void PrintVerificationError(const CConfig *config) const;
 
-  void SolveRelaxation(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh);
 
   void BoundaryPrimitive(const su2double* V_domain, const su2double* V_boundary, const su2double* Normal,
                          const su2double& relaxFactor, su2double* out);

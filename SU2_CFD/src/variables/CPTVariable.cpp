@@ -41,7 +41,7 @@ CPTVariable::CPTVariable(su2double volumeFraction, su2double* velocity, unsigned
   nSecondaryVar = 1;
 
   /*--- Initialization of PT variables ---*/
-  su2double val_solution[5] = {volumeFraction, volumeFraction*velocity[0], volumeFraction*velocity[1], 0.0, 0.0};
+  su2double val_solution[4] = {volumeFraction, volumeFraction*velocity[0], volumeFraction*velocity[1], 0.0};
   if(nDim==3) val_solution[3] = volumeFraction*velocity[2];
 
 
