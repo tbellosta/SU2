@@ -112,10 +112,10 @@ void CConv_PT::GetProjFluxJacobianPT(const su2double* VolFraction, const su2doub
 
   const su2double a = RelaxationFactor;
 
-  ProjJac[0][0] = 0;  ProjJac[0][1] = Norm[0];  ProjJac[0][2] = Norm[1];  ProjJac[0][nDim+1] = 0;
-  ProjJac[1][0] = -u*q-P*Norm[0]/alpha;  ProjJac[1][1] = q+u*Norm[0];  ProjJac[1][2] = u*Norm[1];  ProjJac[1][nDim+1] = Norm[0]/alpha;
-  ProjJac[2][0] = -v*q-P*Norm[1]/alpha;  ProjJac[2][1] = v*Norm[0];  ProjJac[2][2] = q+v*Norm[1];  ProjJac[2][nDim+1] = Norm[1]/alpha;
-  ProjJac[nDim+1][0] = -P*q-a*a*q/alpha;  ProjJac[nDim+1][1] = (P+a*a/alpha)*Norm[0];  ProjJac[nDim+1][2] = (P+a*a/alpha)*Norm[1];  ProjJac[2][nDim+1] = q;
+  ProjJac[0][0] = 0;                     ProjJac[0][1] = Norm[0];                     ProjJac[0][2] = Norm[1];                     ProjJac[0][nDim+1] = 0;
+  ProjJac[1][0] = -u*q-P*Norm[0]/alpha;  ProjJac[1][1] = q+u*Norm[0];                 ProjJac[1][2] = u*Norm[1];                   ProjJac[1][nDim+1] = Norm[0]/alpha;
+  ProjJac[2][0] = -v*q-P*Norm[1]/alpha;  ProjJac[2][1] = v*Norm[0];                   ProjJac[2][2] = q+v*Norm[1];                 ProjJac[2][nDim+1] = Norm[1]/alpha;
+  ProjJac[nDim+1][0] = -P*q-a*a*q/alpha; ProjJac[nDim+1][1] = (P+a*a/alpha)*Norm[0];  ProjJac[nDim+1][2] = (P+a*a/alpha)*Norm[1];  ProjJac[2][nDim+1] = q;
 
   if (nDim == 3) SU2_MPI::Error("Jacobian not implemented for 3D cases.", CURRENT_FUNCTION);
 }
@@ -238,19 +238,28 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
   Pressure_j = V_j[nDim+1];
 
   sL = projVel_i - (a/Density_i);
-  sM = ( projVel_i + projVel_j + (Pressure_i-Pressure_j)/a ) / 2;
+//  sM = ( projVel_i + projVel_j + (Pressure_i-Pressure_j)/a ) / 2;
+  sM = ( projVel_i + projVel_j) / 2;
   sR = projVel_j + (a/Density_j);
 
+//  pStar = a*(projVel_i-projVel_j) / 2;
   pStar = (Pressure_i + Pressure_j + a*(projVel_i-projVel_j)) / 2;
 
-  su2double aa = max(Density_i*(projVel_i-projVel_j)*0.5,Density_j*(projVel_i-projVel_j)*0.5);
-  if (RelaxationFactor < aa) cout << "a < threshold: " << aa << endl;
+//  su2double aa = max(Density_i,Density_j)*(projVel_i-projVel_j);
+//  if (RelaxationFactor < aa) {
+//    cout << "a < threshold: " << RelaxationFactor << " " << aa << " " << abs(projVel_i-projVel_j) << endl;
+//  }
+//  if (projVel_i < projVel_j) {
+//	  aa = min(1.0, 0.5*min(Density_i,Density_j)*(1e6+projVel_i-projVel_j));
+//	   if (RelaxationFactor > aa) cout << "a > threshold: " << RelaxationFactor << " " << aa << " " << abs(projVel_i-projVel_j) << endl;
+//  }
 
   if (sL >= 0) {
     GetProjFluxPT(&Density_i, Velocity_i, &Pressure_i, val_residual, UnitNormal);
   } else if (sM > 0) {
 
-    aStar = 1.0 / ((sM-projVel_i)/a + (1/Density_i));
+//    aStar = 1.0 / ((sM-projVel_i)/a + (1/Density_i));
+    aStar = a*Density_i / (Density_i*(sM-projVel_i) + a);
 
     IntermediateState[0] = aStar;
     for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_i[iDim] + (sM-projVel_i)*UnitNormal[iDim];
@@ -260,7 +269,8 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
 
   } else if (sR > 0) {
 
-    aStar = 1.0 / ((projVel_j-sM)/a + (1/Density_j));
+//    aStar = 1.0 / ((projVel_j-sM)/a + (1/Density_j));
+    aStar = a*Density_j / (Density_j*(projVel_j-sM) + a);
 
     IntermediateState[0] = aStar;
     for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_j[iDim] + (sM-projVel_j)*UnitNormal[iDim];
@@ -284,7 +294,7 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
     }
 
     if (sL >= 0) {
-      GetProjFluxJacobianPT(&Density_i, Velocity_i, &Pressure_i, UnitNormal, val_Jacobian_i);
+      GetProjFluxJacobianPT(&Density_i, Velocity_i, &Pressure_i, Normal, val_Jacobian_i);
     } else if (sM > 0) {
 
       aStar = 1.0 / ((sM-projVel_i)/a + (1/Density_i));
@@ -293,7 +303,7 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
       for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_i[iDim] + (sM-projVel_i)*UnitNormal[iDim];
       IntermediateState[nDim+1] = pStar;
 
-      GetProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, UnitNormal, val_Jacobian_i);
+      GetProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, Normal, val_Jacobian_i);
 
     } else if (sR > 0) {
 
@@ -303,10 +313,10 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
       for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_i[iDim] + (sM-projVel_j)*UnitNormal[iDim];
       IntermediateState[nDim+1] = pStar;
 
-      GetProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, UnitNormal, val_Jacobian_j);
+      GetProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, Normal, val_Jacobian_j);
 
     } else {
-      GetProjFluxJacobianPT(&Density_j, Velocity_j, &Pressure_j, UnitNormal, val_Jacobian_j);
+      GetProjFluxJacobianPT(&Density_j, Velocity_j, &Pressure_j, Normal, val_Jacobian_j);
     }
 
   }

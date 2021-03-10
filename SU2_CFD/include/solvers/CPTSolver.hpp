@@ -47,9 +47,11 @@ class CPTSolver final : public CSolver {
   su2double **HeatFlux, AllBound_HeatFlux, AllBound_AverageT,
       *Primitive, *Primitive_i, *Primitive_j;
   su2double V_inf;
-  su2double relaxConstant;
 
   su2double **CollectionEfficiency;
+
+  su2double FreestreamLWC, FreeStreamUMag, ReferenceLenght;
+  su2double p0,t0,mu0,a0;
 
   CPTVariable* nodes = nullptr;  /*!< \brief The highest level in the variable hierarchy this solver can safely use. */
 
@@ -68,13 +70,16 @@ class CPTSolver final : public CSolver {
 
   void SetMax_Eigenvalue(CGeometry *geometry, CConfig *config);
 
-  su2double computeRelaxationTime(CSolver** solver_container, unsigned long iPoint);
+  su2double computeRelaxationTime(CSolver** solver_container, unsigned long iPoint, su2double* ParticleVelocity = nullptr);
 
   void PrintVerificationError(const CConfig *config) const;
 
   void SolveRelaxation(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh);
 
-  void BoundaryPrimitive(const su2double *V_domain, const su2double *V_boundary, const su2double *Normal, su2double *V_);
+  void BoundaryPrimitive(const su2double* V_domain, const su2double* V_boundary, const su2double* Normal,
+                         const su2double& relaxFactor, su2double* out);
+
+  void SolveSourceSplitting(CGeometry *geometry, CSolver **solver_container, CConfig *config);
 
  public:
 
@@ -309,6 +314,8 @@ class CPTSolver final : public CSolver {
     computeGradientsGreenGauss(this, PRIMITIVE_GRADIENT, PERIODIC_PRIM_GG, *geometry, *config, primitives, 0,
                                nPrimVar, gradient);
 
+    CorrectBoundaryGradient(geometry,config);
+
   }
 
   inline void SetPrimitive_Gradient_LS(CGeometry *geometry,
@@ -331,6 +338,8 @@ class CPTSolver final : public CSolver {
     computeGradientsLeastSquares(this, PRIMITIVE_GRADIENT, kindPeriodicComm, *geometry, *config, weighted, primitives, 0,
                                  nPrimVar, gradient, rmatrix);
 
+    CorrectBoundaryGradient(geometry,config);
+
   }
 
   inline void SetPrimitive_Limiter(CGeometry *geometry, const CConfig *config) final {
@@ -346,6 +355,8 @@ class CPTSolver final : public CSolver {
                     nPrimVar, primitives, gradient, primMin, primMax, limiter);
 
   }
+
+  void CorrectBoundaryGradient(CGeometry *geometry, const CConfig *config);
 
 
 };

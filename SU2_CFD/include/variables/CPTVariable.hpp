@@ -169,5 +169,14 @@ class CPTVariable final : public CVariable {
 
   inline su2double *GetSecondary(unsigned long iPoint) final { return Secondary[iPoint]; }
 
+  /*!
+ * \brief Set the velocity vector from the old solution.
+ * \param[in] val_velocity - Pointer to the velocity.
+ */
+  inline void SetVelocity_Old(unsigned long iPoint, const su2double *val_velocity) final {
+    for (unsigned long iDim = 0; iDim < nDim; iDim++)
+      Solution_Old(iPoint,iDim+1) = val_velocity[iDim]*Solution(iPoint,0);
+  }
+
 
 };
