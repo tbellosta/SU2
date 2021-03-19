@@ -78,6 +78,7 @@ private:
   su2double Fan_Poly_Eff;         /*!< \brief Fan polytropic effeciency. */
   su2double MinLogResidual;       /*!< \brief Minimum value of the log residual. */
   su2double MinLogResidual_PT;       /*!< \brief Minimum value of the log residual. */
+  su2double MinLogResidual_splashingPT;       /*!< \brief Minimum value of the log residual. */
   su2double EA_ScaleFactor;       /*!< \brief Equivalent Area scaling factor */
   su2double* EA_IntLimit;         /*!< \brief Integration limits of the Equivalent Area computation */
   su2double AdjointLimit;         /*!< \brief Adjoint variable limit */
@@ -677,7 +678,8 @@ private:
   Wrt_Binary_Restart,           /*!< \brief Write binary SU2 native restart files.*/
   Read_Binary_Restart,          /*!< \brief Read binary SU2 native restart files.*/
   Restart_Flow,                 /*!< \brief Restart flow solution for adjoint and linearized problems. */
-  Restart_PT;                 /*!< \brief Restart flow solution for adjoint and linearized problems. */
+  Restart_PT,                 /*!< \brief Restart flow solution for adjoint and linearized problems. */
+  Restart_splashingPT;                 /*!< \brief Restart flow solution for adjoint and linearized problems. */
   unsigned short nMarker_Monitoring,  /*!< \brief Number of markers to monitor. */
   nMarker_Designing,                  /*!< \brief Number of markers for the objective function. */
   nMarker_GeoEval,                    /*!< \brief Number of markers for the objective function. */
@@ -768,22 +770,27 @@ private:
   Mesh_Out_FileName,             /*!< \brief Mesh output file. */
   Solution_FileName,             /*!< \brief Flow solution input file. */
   Solution_FileName_PT,             /*!< \brief Flow solution input file. */
+  Solution_FileName_splashingPT,             /*!< \brief Flow solution input file. */
   Solution_LinFileName,          /*!< \brief Linearized flow solution input file. */
   Solution_AdjFileName,          /*!< \brief Adjoint solution input file for drag functional. */
   Volume_FileName,               /*!< \brief Flow variables output file. */
   Volume_FileName_PT,               /*!< \brief Flow variables output file. */
+  Volume_FileName_splashingPT,               /*!< \brief Flow variables output file. */
   Residual_FileName,             /*!< \brief Residual variables output file. */
   Conv_FileName,                 /*!< \brief Convergence history output file. */
   Conv_FileName_PT,                 /*!< \brief Convergence history output file. */
+  Conv_FileName_splashingPT,                 /*!< \brief Convergence history output file. */
   Breakdown_FileName,            /*!< \brief Breakdown output file. */
   Restart_FileName,              /*!< \brief Restart file for flow variables. */
   Restart_FileName_PT,              /*!< \brief Restart file for flow variables. */
+  Restart_FileName_splashingPT,              /*!< \brief Restart file for flow variables. */
   Restart_AdjFileName,           /*!< \brief Restart file for adjoint variables, drag functional. */
   Adj_FileName,                  /*!< \brief Output file with the adjoint variables. */
   ObjFunc_Grad_FileName,         /*!< \brief Gradient of the objective function. */
   ObjFunc_Value_FileName,        /*!< \brief Objective function. */
   SurfCoeff_FileName,            /*!< \brief Output file with the flow variables on the surface. */
   SurfCoeff_FileName_PT,            /*!< \brief Output file with the flow variables on the surface. */
+  SurfCoeff_FileName_splashingPT,            /*!< \brief Output file with the flow variables on the surface. */
   SurfAdjCoeff_FileName,         /*!< \brief Output file with the adjoint variables on the surface. */
   New_SU2_FileName,              /*!< \brief Output SU2 mesh file converted from CGNS format. */
   SurfSens_FileName,             /*!< \brief Output file for the sensitivity on the surface (discrete adjoint). */
@@ -1187,6 +1194,9 @@ private:
 
   su2double particleSize;
   bool eulerianPT;
+  /* GIUSEPPESIRIANNI */
+  bool splashingPT; //Are splashing droplets gonna be simulated
+  /* GIUSEPPESIRIANNI */
 
   /*!
    * \brief Set the default values of config options not set in the config file using another config object.
@@ -1590,7 +1600,15 @@ public:
 
   su2double GetParticle_Size(void) const { return particleSize; }
 
-  bool GetEulerianPaticleTracking(void) const { return eulerianPT; }
+  bool GetEulerianPaticleTracking(void) const { 
+  return eulerianPT; 
+  cout<<" \n inside GetEulerianPaticleTracking  \n";
+  }
+  /* GIUSEPPESIRIANNI */
+  bool GetSplashingPT(void) const { 
+  cout<<" \n PT inside GetSplashingPT  \n" << splashingPT << "\n";
+  return splashingPT; }
+  /* GIUSEPPESIRIANNI */
 
   /*!
    * \brief Get the value of the limits for the sections.
@@ -5302,6 +5320,7 @@ public:
 
   bool GetRestart_Flow(void) const { return Restart_Flow; }
   bool GetRestart_PT(void) const { return Restart_PT; }
+  bool GetRestart_splashingPT(void) const { return Restart_splashingPT; }
 
   /*!
    * \brief Indicates whether the flow is frozen (chemistry deactivated).
@@ -5360,6 +5379,7 @@ public:
    */
   string GetSolution_FileName(void) const { return Solution_FileName; }
   string GetSolution_FileName_PT(void) const { return Solution_FileName_PT; }
+  string GetSolution_FileName_splashingPT(void) const { return Solution_FileName_splashingPT; }
 
   /*!
    * \brief Get the name of the file with the solution of the adjoint flow problem
@@ -5424,6 +5444,7 @@ public:
    */
   string GetVolume_FileName(void) const { return Volume_FileName; }
   string GetVolume_FileName_PT(void) const { return Volume_FileName_PT; }
+  string GetVolume_FileName_splashingPT(void) const { return Volume_FileName_splashingPT; }
 
   /*!
    * \brief Add any numbers necessary to the filename (iteration number, zone ID ...)
@@ -5464,6 +5485,7 @@ public:
    */
   string GetRestart_FileName(void) const { return Restart_FileName; }
   string GetRestart_FileName_PT(void) const { return Restart_FileName_PT; }
+  string GetRestart_FileName_splashingPT(void) const { return Restart_FileName_splashingPT; }
 
   /*!
    * \brief Get the name of the restart file for the adjoint variables (drag objective function).
@@ -5495,6 +5517,7 @@ public:
    */
   string GetSurfCoeff_FileName(void) const { return SurfCoeff_FileName; }
   string GetSurfCoeff_FileName_PT(void) const { return SurfCoeff_FileName_PT; }
+  string GetSurfCoeff_FileName_splashingPT(void) const { return SurfCoeff_FileName_splashingPT; }
 
   /*!
    * \brief Get the name of the file with the surface information for the adjoint problem.
@@ -6235,6 +6258,7 @@ public:
    */
   su2double GetMinLogResidual(void) const { return MinLogResidual; }
   su2double GetMinLogResidual_PT(void) const { return MinLogResidual_PT; }
+  su2double GetMinLogResidual_splashingPT(void) const { return MinLogResidual_splashingPT; }
 
   /*!
    * \brief Value of the damping factor for the engine inlet bc.

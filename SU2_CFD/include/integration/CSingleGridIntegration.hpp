@@ -75,6 +75,7 @@ public:
    * \param[in] numerics_container - Description of the numerical method (the way in which the equations are solved).
    * \param[in] config - Definition of the particular problem.
    * \param[in] RunTime_EqSystem - System of equations which is going to be solved.
+   * \param[in] splashing - Is this iteration for the splashing droplets
    */
   void SingleGrid_Iteration(CGeometry ****geometry, CSolver *****solver_container,
                             CNumerics ******numerics_container, CConfig **config,

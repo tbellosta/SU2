@@ -433,13 +433,22 @@ void CUpwHLLC_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacob
 //  qL = (aStar > Density_i) ? sqrt(0.5*(aStar+Density_i)*aStar/pow(Density_i,2)) : 1.0;
 //  qR = (aStar > Density_j) ? sqrt(0.5*(aStar+Density_j)*aStar/pow(Density_j,2)) : 1.0;
 
-  qL = (aStar > Density_i) ? sqrt(aStar/Density_i) : 1.0;
-  qR = (aStar > Density_j) ? sqrt(aStar/Density_j) : 1.0;
+  //Gave errors for some unknown reason (?)
+  if(aStar > Density_i){
+    qL = sqrt(aStar/Density_i);
+  }else{
+    qL = 1.0;
+  }
+  if(aStar > Density_j){
+    qR = sqrt(aStar/Density_j);
+  }else{
+    qR = 1.0;
+  }
 
   sL = projVel_i - aL * qL;
   sR = projVel_j + aR * qR;
   sM = (sL * Density_j * (projVel_j - sR) - sR * Density_i * (projVel_i - sL));
-  if (sM) sM /= (Density_j * (projVel_j - sR) - Density_i * (projVel_i - sL));
+  if (sM!=0.0) sM /= (Density_j * (projVel_j - sR) - Density_i * (projVel_i - sL));
 //  sM = uStar;
 
   if (sL >= 0) {

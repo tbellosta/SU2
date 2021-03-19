@@ -79,7 +79,7 @@ const unsigned int MAX_PARAMETERS = 10;       /*!< \brief Maximum number of para
 const unsigned int MAX_NUMBER_PERIODIC = 10;  /*!< \brief Maximum number of periodic boundary conditions. */
 const unsigned int MAX_STRING_SIZE = 200;     /*!< \brief Maximum number of domains. */
 const unsigned int MAX_NUMBER_FFD = 15;       /*!< \brief Maximum number of FFDBoxes for the FFD. */
-const unsigned int MAX_SOLS = 12;             /*!< \brief Maximum number of solutions at the same time (dimension of solution container array). */
+const unsigned int MAX_SOLS = 13;             /*!< \brief Maximum number of solutions at the same time (dimension of solution container array). */
 const unsigned int MAX_TERMS = 6;             /*!< \brief Maximum number of terms in the numerical equations (dimension of solver container array). */
 const unsigned int MAX_ZONES = 3;             /*!< \brief Maximum number of zones. */
 const unsigned int MAX_FE_KINDS = 4;          /*!< \brief Maximum number of Finite Elements. */
@@ -201,6 +201,9 @@ enum ENUM_MAIN_SOLVER {
   FEM_LES = 29,                     /*!< \brief Definition of the finite element Large Eddy Simulation Navier-Stokes' (LES) solver. */
   MULTIPHYSICS = 30,
   PARTICLE_TRACKING = 31,
+    /*GIUSEPPESIRIANNI*/
+  SPLASHING_PARTICLE_TRACKING = 32, /*!< \brief Definition of the splashing particle tracking solver */
+    /*GIUSEPPESIRIANNI*/
   NEMO_EULER = 41,                  /*!< \brief Definition of the NEMO Euler solver. */
   NEMO_NAVIER_STOKES = 42           /*!< \brief Definition of the NEMO NS solver. */
 };
@@ -453,6 +456,9 @@ enum RUNTIME_TYPE {
   RUNTIME_ADJFEA_SYS = 30,    /*!< \brief One-physics case, the code is solving the adjoint FEA equation. */
   RUNTIME_HEAT_SYS = 21,      /*!< \brief One-physics case, the code is solving the heat equation. */
   RUNTIME_PT_SYS = 25,        /*!< \brief One-physics case, the code is solving the PT equation. */
+  /*GIUSEPPESIRIANNI*/
+  RUNTIME_SPLASHINGPT_SYS = 26,        /*!< \brief One-physics case, the code is solving the PT equations for the splashing droplets. */
+  /*GIUSEPPESIRIANNI*/
   RUNTIME_ADJHEAT_SYS = 31,   /*!< \brief One-physics case, the code is solving the adjoint heat equation. */
   RUNTIME_TRANS_SYS = 22,     /*!< \brief One-physics case, the code is solving the turbulence model. */
   RUNTIME_RADIATION_SYS = 23, /*!< \brief One-physics case, the code is solving the radiation model. */
@@ -471,6 +477,9 @@ const int ADJHEAT_SOL = 6;  /*!< \brief Position of the adjoint heat equation in
 const int RAD_SOL = 7;      /*!< \brief Position of the radiation equation in the solution solver array. */
 const int ADJRAD_SOL = 8;   /*!< \brief Position of the continuous adjoint turbulence solution in the solver container array. */
 const int PT_SOL = 11;
+/*GIUSEPPESIRIANNI*/
+const int SPLASHINGPT_SOL = 12;   /*!< \brief Position of the PT splashing eulerian solution in the solver container array. */
+/*GIUSEPPESIRIANNI*/
 
 const int MESH_SOL = 9;      /*!< \brief Position of the mesh solver. */
 const int ADJMESH_SOL = 10;   /*!< \brief Position of the adjoint of the mesh solver. */

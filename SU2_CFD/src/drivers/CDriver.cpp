@@ -133,7 +133,7 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
 
   /*--- Output preprocessing ---*/
 
-  Output_Preprocessing(config_container, driver_config, output_container, driver_output, output_container_PT);
+  Output_Preprocessing(config_container, driver_config, output_container, driver_output, output_container_PT, output_container_splashingPT);
 
 
   for (iZone = 0; iZone < nZone; iZone++) {
@@ -145,6 +145,7 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
     geometry_container[iZone]       = new CGeometry**    [nInst[iZone]];
     iteration_container[iZone]      = new CIteration*    [nInst[iZone]];
     iteration_container_PT[iZone]   = new CIteration*    [nInst[iZone]];
+    iteration_container_splashingPT[iZone]   = new CIteration*    [nInst[iZone]]; //iteration container for splashing
     solver_container[iZone]         = new CSolver***     [nInst[iZone]];
     integration_container[iZone]    = new CIntegration** [nInst[iZone]];
     numerics_container[iZone]       = new CNumerics****  [nInst[iZone]];
@@ -219,8 +220,9 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
        example, one can execute the same physics across multiple zones (mixing plane),
        different physics in different zones (fluid-structure interaction), or couple multiple
        systems tightly within a single zone by creating a new iteration class (e.g., RANS). ---*/
-
-      Iteration_Preprocessing(config_container[iZone], iteration_container[iZone][iInst], iteration_container_PT[iZone][iInst]);
+       
+      Iteration_Preprocessing(config_container[iZone], iteration_container[iZone][iInst], iteration_container_PT[iZone][iInst], iteration_container_splashingPT[iZone][iInst]);
+      
 
       /*--- Dynamic mesh processing.  ---*/
 
@@ -298,6 +300,8 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
     MDOFsDomain   += (su2double)DOFsPerPoint*(su2double)geometry_container[iZone][INST_0][MESH_0]->GetGlobal_nPointDomain()/(1.0e6);
   }
 
+  COutput **output_container_PT;                   /*!< \brief Pointer to the COutput class. */
+  COutput **output_container_splashingPT;                   /*!< \brief Pointer to the COutput class. */
   /*--- Reset timer for compute/output performance benchmarking. ---*/
 
   StopTime = SU2_MPI::Wtime();
@@ -323,8 +327,13 @@ void CDriver::SetContainers_Null(){
   ConvHist_file                  = nullptr;
   iteration_container            = nullptr;
   iteration_container_PT         = nullptr;
+  /* GIUSEPPESIRIANNI */
+
+  iteration_container_splashingPT         = nullptr;
+  /* GIUSEPPESIRIANNI */
   output_container               = nullptr;
   output_container_PT            = nullptr;
+  output_container_splashingPT   = nullptr;
   integration_container          = nullptr;
   geometry_container             = nullptr;
   solver_container               = nullptr;
@@ -342,6 +351,7 @@ void CDriver::SetContainers_Null(){
 
   iteration_container            = new CIteration**[nZone];
   iteration_container_PT         = new CIteration**[nZone];
+  iteration_container_splashingPT         = new CIteration**[nZone];
   solver_container               = new CSolver****[nZone];
   integration_container          = new CIntegration***[nZone];
   numerics_container             = new CNumerics*****[nZone];
@@ -355,6 +365,7 @@ void CDriver::SetContainers_Null(){
   interface_types                = new unsigned short*[nZone];
   output_container               = new COutput*[nZone];
   output_container_PT            = new COutput*[nZone];
+  output_container_splashingPT   = new COutput*[nZone];
   nInst                          = new unsigned short[nZone];
   driver_config                  = nullptr;
   driver_output                  = nullptr;
@@ -373,6 +384,7 @@ void CDriver::SetContainers_Null(){
     interface_types[iZone]                = new unsigned short[nZone];
     output_container[iZone]               = nullptr;
     output_container_PT[iZone]            = nullptr;
+    output_container_splashingPT[iZone]   = nullptr;
     nInst[iZone]                          = 1;
   }
 
@@ -544,6 +556,15 @@ void CDriver::Postprocessing() {
       }
     }
     delete [] output_container_PT;
+  }
+
+  if (output_container_splashingPT!= nullptr) {
+    for (iZone = 0; iZone < nZone; iZone++) {
+      if (output_container_splashingPT[iZone] != nullptr) {
+        delete output_container_splashingPT[iZone];
+      }
+    }
+    delete [] output_container_splashingPT;
   }
 
 
@@ -1066,7 +1087,7 @@ void CDriver::Solver_Preprocessing(CConfig* config, CGeometry** geometry, CSolve
   solver = new CSolver**[config->GetnMGLevels()+1];
 
   for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++){
-    solver[iMesh] = CSolverFactory::CreateSolverContainer(kindSolver, config, geometry[iMesh], iMesh);
+    solver[iMesh] = CSolverFactory::CreateSolverContainer(kindSolver, config, geometry[iMesh], iMesh);  
   }
 
   /*--- Count the number of DOFs per solution point. ---*/
@@ -1460,7 +1481,7 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
   /*--- Initialize some useful booleans ---*/
   bool euler, ns, NEMO_euler, NEMO_ns, turbulent, adj_euler, adj_ns, adj_turb, fem_euler, fem_ns, fem_turbulent;
   bool spalart_allmaras, neg_spalart_allmaras, e_spalart_allmaras, comp_spalart_allmaras, e_comp_spalart_allmaras, menter_sst;
-  bool fem, heat, transition, template_solver, pt;
+  bool fem, heat, transition, template_solver, pt, splashingpt;//splashingpt bool to check if we are supposed to simulate splashing droplets or not
 
   euler = ns = NEMO_euler = NEMO_ns = turbulent = adj_euler = adj_ns = adj_turb = fem_euler = fem_ns = fem_turbulent = false;
   spalart_allmaras = neg_spalart_allmaras = e_spalart_allmaras = comp_spalart_allmaras = e_comp_spalart_allmaras = menter_sst = false;
@@ -1540,11 +1561,18 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
       adj_turb = !config->GetFrozen_Visc_Cont(); break;
 
     case PARTICLE_TRACKING:
-      pt = true; break;
+      pt = true; 
+      if(config->GetSplashingPT()){
+        splashingpt=true;
+      }
+      break;
 
   }
 
   if (config->GetEulerianPaticleTracking()) pt = true;
+  if(config->GetSplashingPT()){
+    splashingpt=true;
+  }
 
   /*--- Assign turbulence model booleans ---*/
 
@@ -2273,7 +2301,55 @@ void CDriver::Numerics_Preprocessing(CConfig *config, CGeometry **geometry, CSol
       numerics[iMGlevel][PT_SOL][source_first_term] = new CSourceDrag(nDim, nVar_PT, config);
       numerics[iMGlevel][PT_SOL][source_second_term] = new CSourceNothing(nDim, nVar_PT, config);
 
+      if(splashingpt){
 
+        switch (config->GetKind_ConvNumScheme_PT()) {
+
+          case SPACE_UPWIND :
+            switch (config->GetKind_Upwind_PT()) {
+              case GODUNOV_PT:
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_term] = new CUpwGodunov_PT(nDim, nVar_PT, config);
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_bound_term] = new CUpwGodunov_PT(nDim, nVar_PT, config);
+                break;
+              case RUSANOV_PT:
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_bound_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
+                break;
+              case FDS_PT:
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_term] = new CUpwFDS_PT(nDim, nVar_PT, config);
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_bound_term] = new CUpwFDS_PT(nDim, nVar_PT, config);
+                break;
+              case SW_PT:
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_term] = new CUpwStegWarm_PT(nDim, nVar_PT, config);
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_bound_term] = new CUpwStegWarm_PT(nDim, nVar_PT, config);
+                break;
+              case HLLC:
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_term] = new CUpwHLLC_PT(nDim, nVar_PT, config);
+                numerics[iMGlevel][SPLASHINGPT_SOL][conv_bound_term] = new CUpwHLLC_PT(nDim, nVar_PT, config);
+                break;
+              default:
+                SU2_OMP_MASTER
+                SU2_MPI::Error("Invalid upwind scheme for the particle tracking equations.", CURRENT_FUNCTION);
+                break;
+            }
+            break;
+
+          case SPACE_CENTERED :
+            numerics[iMGlevel][SPLASHINGPT_SOL][conv_term] = new CCent_PT(nDim, nVar_PT, config);
+            numerics[iMGlevel][SPLASHINGPT_SOL][conv_bound_term] = new CUpwRusanov_PT(nDim, nVar_PT, config);
+            break;
+
+          default:
+            SU2_OMP_MASTER
+            SU2_MPI::Error("Invalid convective scheme for the particle tracking equations.", CURRENT_FUNCTION);
+            break;
+        }
+
+        numerics[iMGlevel][SPLASHINGPT_SOL][source_first_term] = new CSourceDrag(nDim, nVar_PT, config);
+        numerics[iMGlevel][SPLASHINGPT_SOL][source_second_term] = new CSourceNothing(nDim, nVar_PT, config);
+
+
+      }
     }
   }
 
@@ -2566,7 +2642,7 @@ void CDriver::Numerics_Postprocessing(CNumerics *****numerics, CSolver***, CGeom
 
 }
 
-void CDriver::Iteration_Preprocessing(CConfig* config, CIteration*& iteration, CIteration*& iteration_PT) const {
+void CDriver::Iteration_Preprocessing(CConfig* config, CIteration*& iteration, CIteration*& iteration_PT, CIteration*& iteration_splashingPT) const {
 
   if (rank == MASTER_NODE)
     cout << endl <<"------------------- Iteration Preprocessing ( Zone " << config->GetiZone() <<" ) ------------------" << endl;
@@ -2574,6 +2650,9 @@ void CDriver::Iteration_Preprocessing(CConfig* config, CIteration*& iteration, C
   iteration = CIterationFactory::CreateIteration(static_cast<ENUM_MAIN_SOLVER>(config->GetKind_Solver()), config);
 
   iteration_PT = CIterationFactory::CreateIteration(PARTICLE_TRACKING, config);
+  if(config->GetSplashingPT()){
+    iteration_splashingPT = CIterationFactory::CreateIteration(SPLASHING_PARTICLE_TRACKING, config);
+  }
 
 }
 
@@ -2836,7 +2915,7 @@ void CDriver::StaticMesh_Preprocessing(CConfig *config, CGeometry** geometry, CS
 }
 
 void CDriver::Output_Preprocessing(CConfig** config, CConfig* driver_config, COutput**& output, COutput*& driver_output,
-                                   COutput**& outputPT) {
+                                   COutput**& outputPT, COutput**& outputsplashingPT) {
 
   /*--- Definition of the output class (one for each zone). The output class
    manages the writing of all restart, volume solution, surface solution,
@@ -2864,6 +2943,18 @@ void CDriver::Output_Preprocessing(CConfig** config, CConfig* driver_config, COu
       outputPT[iZone]->PreprocessHistoryOutput(config[iZone], !dry_run);
 
       outputPT[iZone]->PreprocessVolumeOutput(config[iZone]);
+
+      if(config[iZone]->GetSplashingPT())
+      {
+        outputsplashingPT[iZone] = COutputFactory::CreateOutput(SPLASHING_PARTICLE_TRACKING, config[iZone], nDim);
+
+        /*--- If dry-run is used, do not open/overwrite history file. ---*/
+        outputsplashingPT[iZone]->PreprocessHistoryOutput(config[iZone], !dry_run);
+
+        outputsplashingPT[iZone]->PreprocessVolumeOutput(config[iZone]);
+
+      }
+
     }
 
   }

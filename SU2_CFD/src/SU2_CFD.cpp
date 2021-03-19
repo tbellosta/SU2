@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
   omp_set_num_threads(num_threads);
 
   /*--- MPI initialization, and buffer setting ---*/
-
+  
 #ifdef HAVE_MPI
   int  buffsize;
   char *buffptr;
@@ -111,6 +111,9 @@ int main(int argc, char *argv[]) {
   bool harmonic_balance = (config->GetTime_Marching() == HARMONIC_BALANCE);
   bool particleTracking = config->GetEulerianPaticleTracking();
 
+  bool splashing = config->GetSplashingPT(); //should splashing be computed?
+  
+
   if (dry_run) {
 
     /*--- Dry Run. ---*/
@@ -128,7 +131,10 @@ int main(int argc, char *argv[]) {
     }
     else {
       if (!particleTracking) driver = new CSinglezoneDriver(config_file_name, nZone, MPICommunicator);
-      else driver = new CPTDriver(config_file_name, nZone, MPICommunicator);
+      else {
+
+        driver = new CPTDriver(config_file_name, nZone, MPICommunicator,splashing); 
+      }
     }
 
   }

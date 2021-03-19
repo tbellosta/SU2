@@ -55,7 +55,7 @@ void CIntegration::Space_Integration(CGeometry *geometry,
     case SPACE_CENTERED:
       solver_container[MainSolver]->Centered_Residual(geometry, solver_container, numerics, config, iMesh, iRKStep);
       break;
-    case SPACE_UPWIND:
+    case SPACE_UPWIND:  
       solver_container[MainSolver]->Upwind_Residual(geometry, solver_container, numerics, config, iMesh);
       break;
     case FINITE_ELEMENT:
@@ -150,7 +150,6 @@ void CIntegration::Space_Integration(CGeometry *geometry,
   }
 
   /*--- Strong boundary conditions (Navier-Stokes and Dirichlet type BCs) ---*/
-
   for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++)
     switch (config->GetMarker_All_KindBC(iMarker)) {
       case ISOTHERMAL:

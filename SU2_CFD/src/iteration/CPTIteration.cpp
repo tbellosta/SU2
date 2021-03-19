@@ -28,16 +28,33 @@
 #include "../../include/iteration/CPTIteration.hpp"
 #include "../../include/output/COutput.hpp"
 
+CPTIteration::CPTIteration(const CConfig* config, bool isSplashingIteration) : CPTIteration(config)
+{
+  splashingIteration = isSplashingIteration;
+}
+
 void CPTIteration::Iterate(COutput* output, CIntegration**** integration, CGeometry**** geometry, CSolver***** solver,
                              CNumerics****** numerics, CConfig** config, CSurfaceMovement** surface_movement,
                              CVolumetricMovement*** grid_movement, CFreeFormDefBox*** FFDBox, unsigned short val_iZone,
                              unsigned short val_iInst) {
   /*--- Update global parameters ---*/
+  
+  
+  if(splashingIteration){
 
-  config[val_iZone]->SetGlobalParam(PARTICLE_TRACKING, RUNTIME_PT_SYS);
+    config[val_iZone]->SetGlobalParam(SPLASHING_PARTICLE_TRACKING, RUNTIME_SPLASHINGPT_SYS);
 
-  integration[val_iZone][val_iInst][PT_SOL]->SingleGrid_Iteration(geometry, solver, numerics, config,
+    
+    integration[val_iZone][val_iInst][SPLASHINGPT_SOL]->SingleGrid_Iteration(geometry, solver, numerics, config,
+                                                                    RUNTIME_SPLASHINGPT_SYS, val_iZone, val_iInst);
+  }
+  else{
+    config[val_iZone]->SetGlobalParam(PARTICLE_TRACKING, RUNTIME_PT_SYS);
+
+    integration[val_iZone][val_iInst][PT_SOL]->SingleGrid_Iteration(geometry, solver, numerics, config,
                                                                     RUNTIME_PT_SYS, val_iZone, val_iInst);
+
+  }
 }
 
 void CPTIteration::Solve(COutput* output, CIntegration**** integration, CGeometry**** geometry, CSolver***** solver,
@@ -83,8 +100,14 @@ void CPTIteration::Solve(COutput* output, CIntegration**** integration, CGeometr
     Output(output, geometry, solver, config, config[val_iZone]->GetOuterIter(), StopCalc, val_iZone, val_iInst);
 
     /*--- Set the fluid convergence to false (to make sure outer subiterations converge) ---*/
+    if(splashingIteration){
 
-    integration[val_iZone][INST_0][PT_SOL]->SetConvergence(false);
+      integration[val_iZone][INST_0][SPLASHINGPT_SOL]->SetConvergence(false);
+    }
+    else{
+      integration[val_iZone][INST_0][PT_SOL]->SetConvergence(false);
+
+    }
   }
 }
 
@@ -100,11 +123,22 @@ void CPTIteration::Update(COutput* output, CIntegration**** integration, CGeomet
       (config[val_iZone]->GetTime_Marching() == DT_STEPPING_2ND)) {
     /*--- Update dual time solver ---*/
 
-    for (iMesh = 0; iMesh <= config[val_iZone]->GetnMGLevels(); iMesh++) {
-      integration[val_iZone][val_iInst][PT_SOL]->SetDualTime_Solver(geometry[val_iZone][val_iInst][iMesh],
-                                                                      solver[val_iZone][val_iInst][iMesh][PT_SOL],
-                                                                      config[val_iZone], iMesh);
-      integration[val_iZone][val_iInst][PT_SOL]->SetConvergence(false);
+    if(splashingIteration){
+      for (iMesh = 0; iMesh <= config[val_iZone]->GetnMGLevels(); iMesh++) {
+        integration[val_iZone][val_iInst][SPLASHINGPT_SOL]->SetDualTime_Solver(geometry[val_iZone][val_iInst][iMesh],
+                                                                        solver[val_iZone][val_iInst][iMesh][SPLASHINGPT_SOL],
+                                                                        config[val_iZone], iMesh);
+        integration[val_iZone][val_iInst][SPLASHINGPT_SOL]->SetConvergence(false);
+      }
+    }
+    else{
+      for (iMesh = 0; iMesh <= config[val_iZone]->GetnMGLevels(); iMesh++) {
+        integration[val_iZone][val_iInst][PT_SOL]->SetDualTime_Solver(geometry[val_iZone][val_iInst][iMesh],
+                                                                        solver[val_iZone][val_iInst][iMesh][PT_SOL],
+                                                                        config[val_iZone], iMesh);
+        integration[val_iZone][val_iInst][PT_SOL]->SetConvergence(false);
+      }
     }
   }
 }
+

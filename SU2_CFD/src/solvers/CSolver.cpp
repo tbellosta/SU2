@@ -48,7 +48,6 @@
 #include "../../../Common/include/toolboxes/geometry_toolbox.hpp"
 #include "../../include/CMarkerProfileReaderFVM.hpp"
 
-
 CSolver::CSolver(bool mesh_deform_mode) : System(mesh_deform_mode) {
 
   rank = SU2_MPI::GetRank();
@@ -948,7 +947,7 @@ void CSolver::InitiatePeriodicComms(CGeometry *geometry,
 
             /*--- Get the position vector from rot center to point. ---*/
 
-            GeometryToolbox::Distance(nDim, Coord_i, center, distance);
+            GeometryToolbox::Distance(nDim, Coord_i, center, distance); //nDim or nVar (?)
 
             /*--- Compute transformed point coordinates. ---*/
 

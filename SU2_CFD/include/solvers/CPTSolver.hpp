@@ -48,10 +48,14 @@ class CPTSolver final : public CSolver {
       *Primitive, *Primitive_i, *Primitive_j;
   su2double V_inf;
 
+  vector<vector<su2double>> splashingBCs;/*!< \brief vector containing BCs for splashing at wall. */
+
   su2double **CollectionEfficiency;
 
   su2double FreestreamLWC, FreeStreamUMag, ReferenceLenght;
   su2double p0,t0,mu0,a0;
+  bool splashingPT; //is this CPTSolver instance solving the droplets or the splashing droplets
+
 
   CPTVariable* nodes = nullptr;  /*!< \brief The highest level in the variable hierarchy this solver can safely use. */
 
@@ -59,6 +63,10 @@ class CPTSolver final : public CSolver {
    * \brief Return nodes to allow CSolver::base_nodes to be set.
    */
   inline CVariable* GetBaseClassPointerToNodes() override { return nodes; }
+
+  bool GetSplashingPT(){return splashingPT;}
+
+  void SetSplashingPT(bool isSplashingPT){splashingPT = isSplashingPT;}
 
   void LimitSolution(void);
 
@@ -90,7 +98,7 @@ class CPTSolver final : public CSolver {
   /*!
    * \brief Constructor of the class.
    */
-  CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh);
+  CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh, bool isSplashingPT);
 
   /*!
    * \brief Destructor of the class.
@@ -279,6 +287,13 @@ class CPTSolver final : public CSolver {
                     CConfig *config,
                     unsigned short val_marker) final;
 
+  void BC_Splashing_Wall(CGeometry *geometry,
+                    CSolver **solver_container,
+                    CNumerics *conv_numerics,
+                    CNumerics *visc_numerics,
+                    CConfig *config,
+                    unsigned short val_marker); //NO FINAL ????
+
   void BC_Euler_Wall(CGeometry *geometry,
                         CSolver **solver_container,
                         CNumerics *conv_numerics,
@@ -306,16 +321,16 @@ class CPTSolver final : public CSolver {
   inline void SetPrimitive_Gradient_GG(CGeometry *geometry,
                                                const CConfig *config,
                                                bool reconstruction = false) final {
-
+                                      
     const auto& primitives = nodes->GetPrimitive();
     auto& gradient = reconstruction ? nodes->GetGradient_Reconstruction() : nodes->GetGradient_Primitive();
-
+       
     computeGradientsGreenGauss(this, PRIMITIVE_GRADIENT, PERIODIC_PRIM_GG, *geometry, *config, primitives, 0,
                                nPrimVar, gradient);
-
+       
     CorrectBoundaryGradient(geometry,config);
-
   }
+
 
   inline void SetPrimitive_Gradient_LS(CGeometry *geometry,
                                        const CConfig *config,

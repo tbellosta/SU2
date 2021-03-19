@@ -36,12 +36,25 @@
  * \author T. Bellosta
  */
 class CPTIteration : public CFluidIteration {
- public:
+
+    protected:
+        bool splashingIteration = false; //is this the Iteration instance for droplets or splashing
+    public:
+        bool GetSplashingIteration() {return splashingIteration;}
+
   /*!
    * \brief Constructor of the class.
    * \param[in] config - Definition of the particular problem.
    */
   explicit CPTIteration(const CConfig* config) : CFluidIteration(config) {}
+    
+    /*!
+   * \brief Constructor of the class.
+   * \param[in] config - Definition of the particular problem.
+   * \param[in] isSplashingIteration - Is this iteration of droplets of splashing droplets
+   */
+  CPTIteration(const CConfig* config, bool isSplashingIteration);
+
 
   /*!
    * \brief Perform a single iteration of the heat system.

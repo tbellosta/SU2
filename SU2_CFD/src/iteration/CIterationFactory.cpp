@@ -119,7 +119,13 @@ CIteration* CIterationFactory::CreateIteration(ENUM_MAIN_SOLVER kindSolver, cons
     case PARTICLE_TRACKING:
       if (config->GetEulerianPaticleTracking()) {
         if (rank == MASTER_NODE) cout << "Particle tracking iteration." << endl;
-        iteration = new CPTIteration(config);
+        iteration = new CPTIteration(config, false);
+      }
+      break;
+    case SPLASHING_PARTICLE_TRACKING:
+      if (config->GetEulerianPaticleTracking()) {
+        if (rank == MASTER_NODE) cout << "Splashing particle tracking iteration." << endl;
+        iteration = new CPTIteration(config,true);
       }
       break;
   }

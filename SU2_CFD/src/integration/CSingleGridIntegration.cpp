@@ -35,7 +35,7 @@ void CSingleGridIntegration::SingleGrid_Iteration(CGeometry ****geometry, CSolve
                                                   CNumerics ******numerics_container, CConfig **config,
                                                   unsigned short RunTime_EqSystem, unsigned short iZone,
                                                   unsigned short iInst) {
-
+                                                          
   const unsigned short Solver_Position = config[iZone]->GetContainerPosition(RunTime_EqSystem);
 
   /*--- Start an OpenMP parallel region covering the entire iteration. ---*/
@@ -47,7 +47,7 @@ void CSingleGridIntegration::SingleGrid_Iteration(CGeometry ****geometry, CSolve
 
   CGeometry* geometry_fine = geometry[iZone][iInst][FinestMesh];
   CSolver** solvers_fine = solver_container[iZone][iInst][FinestMesh];
-
+    
   /*--- Preprocessing ---*/
 
   solvers_fine[Solver_Position]->Preprocessing(geometry_fine, solvers_fine, config[iZone],
@@ -67,6 +67,7 @@ void CSingleGridIntegration::SingleGrid_Iteration(CGeometry ****geometry, CSolve
   Space_Integration(geometry_fine, solvers_fine,
                     numerics_container[iZone][iInst][FinestMesh][Solver_Position],
                     config[iZone], FinestMesh, NO_RK_ITER, RunTime_EqSystem);
+
 
   /*--- Time integration ---*/
 

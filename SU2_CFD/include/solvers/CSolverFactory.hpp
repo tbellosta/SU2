@@ -55,6 +55,7 @@ enum class SUB_SOLVER_TYPE {
   DG_NAVIER_STOKES,        /*!< \brief Higher-order DG Navier-Stokes solver*/
   HEAT,                    /*!< \brief Heat solver */
   PT,                      /*!< \brief PT solver */
+  SPLASHINGPT,             /*!< \brief splashing PT solver */
   TRANSITION,              /*!< \brief Transition model solver*/
   TURB_SA,                 /*!< \brief SA turbulence model solver */
   TURB_SST,                /*!< \brief SST turbulence model solver */

@@ -43,8 +43,14 @@ protected:
   bool StopCalc_PT;
   bool runtimeFlow;
 
-  void setRuntimeFlow() {runtimeFlow = true;}
-  void setRuntimeParticles() {runtimeFlow = false;}
+  bool splashing; //is splashing to be computed or not?
+  bool runtimeSplashing;
+
+  void setRuntimeFlow() {runtimeFlow = true; runtimeSplashing = false;}
+  void setRuntimeParticles() {runtimeFlow = false; runtimeSplashing = false;}
+
+  void setRuntimeSplashing() {runtimeFlow = false; runtimeSplashing = true;} //is it currently computing splashing
+  bool getSplashing() {return splashing;}
 
 public:
 
@@ -57,6 +63,22 @@ public:
   CPTDriver(char* confFile,
              unsigned short val_nZone,
              SU2_Comm MPICommunicator);
+
+
+
+  /*GIUSEPPESIRIANNI*/
+  /*!
+   * \brief Constructor of the class.
+   * \param[in] confFile - Configuration file name.
+   * \param[in] val_nZone - Total number of zones.
+   * \param[in] MPICommunicator - MPI communicator for SU2.
+   * \param[in] splashing - Should splashing be computed.
+   */
+  CPTDriver(char* confFile,
+             unsigned short val_nZone,
+             SU2_Comm MPICommunicator, bool splashingConfig);
+  /*GIUSEPPESIRIANNI*/
+
 
   /*!
    * \brief Destructor of the class.
@@ -92,7 +114,10 @@ public:
    * \brief Output the solution in solution file.
    */
   void Output(unsigned long TimeIter) override;
-
+  /*!
+   * \brief Output the solution in solution file.
+   */
+  void ComputeSplashingBCs();
   /*!
    * \brief Perform a dynamic mesh deformation, included grid velocity computation and the update of the multigrid structure.
    */

@@ -30,7 +30,7 @@
 #include "../../../Common/include/geometry/CGeometry.hpp"
 #include "../../include/solvers/CSolver.hpp"
 
-CPTOutput::CPTOutput(CConfig *config, unsigned short nDim) : COutput(config, nDim, false) {
+CPTOutput::CPTOutput(CConfig *config, unsigned short nDim, bool splashing) : COutput(config, nDim, false) {
 
   multiZone = config->GetMultizone_Problem();
 
@@ -57,22 +57,45 @@ CPTOutput::CPTOutput(CConfig *config, unsigned short nDim) : COutput(config, nDi
   ss << "Zone " << config->GetiZone() << " (Particle Tracking)";
   multiZoneHeaderString = ss.str();
 
-  /*--- Set the volume filename --- */
 
-  volumeFilename = config->GetVolume_FileName_PT();
-  /*--- Set the surface filename --- */
 
-  surfaceFilename = config->GetSurfCoeff_FileName_PT();
+  splashingOutput = splashing;
+  if(splashingOutput)
+  {
+    /*--- Set the volume filename --- */
 
-  /*--- Set the restart filename --- */
+    volumeFilename = config->GetVolume_FileName_splashingPT();
+    /*--- Set the surface filename --- */
 
-  restartFilename = config->GetRestart_FileName_PT();
+    surfaceFilename = config->GetSurfCoeff_FileName_splashingPT();
 
-  /*--- Set the default convergence field --- */
+    /*--- Set the restart filename --- */
 
-  if (convFields.empty() ) convFields.emplace_back("RMS_ALPHA");
+    restartFilename = config->GetRestart_FileName_splashingPT();
 
-  minLogResidual = config->GetMinLogResidual_PT();
+    /*--- Set the default convergence field --- */
+
+    if (convFields.empty() ) convFields.emplace_back("RMS_ALPHA");
+
+    minLogResidual = config->GetMinLogResidual_splashingPT();}
+  else{
+    /*--- Set the volume filename --- */
+
+    volumeFilename = config->GetVolume_FileName_PT();
+    /*--- Set the surface filename --- */
+
+    surfaceFilename = config->GetSurfCoeff_FileName_PT();
+
+    /*--- Set the restart filename --- */
+
+    restartFilename = config->GetRestart_FileName_PT();
+
+    /*--- Set the default convergence field --- */
+
+    if (convFields.empty() ) convFields.emplace_back("RMS_ALPHA");
+
+    minLogResidual = config->GetMinLogResidual_PT();
+  }
 
 
 }
@@ -81,7 +104,14 @@ CPTOutput::~CPTOutput(void) = default;
 
 void CPTOutput::LoadHistoryData(CConfig *config, CGeometry *geometry, CSolver **solver) {
 
-  CSolver* PT_solver = solver[PT_SOL];
+  CSolver* PT_solver = nullptr;
+  
+  if(splashingOutput){
+    PT_solver = solver[SPLASHINGPT_SOL];
+  }
+  else{
+    PT_solver = solver[PT_SOL];
+  }
 
   SetHistoryOutputValue("RMS_ALPHA", log10(PT_solver->GetRes_RMS(0)));
   SetHistoryOutputValue("RMS_ALPHA-U", log10(PT_solver->GetRes_RMS(1)));
@@ -169,8 +199,15 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
 
 
 void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint){
-
-  CVariable* Node_PT = solver[PT_SOL]->GetNodes();
+  CVariable* Node_PT = nullptr;
+  if(splashingOutput)
+  {
+    Node_PT = solver[SPLASHINGPT_SOL]->GetNodes();
+  }
+  else
+  {
+    Node_PT = solver[PT_SOL]->GetNodes();
+  }
   CVariable* Node_Flow = solver[FLOW_SOL]->GetNodes();
   CPoint*    Node_Geo  = geometry->nodes;
 
@@ -192,12 +229,21 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
   if (nDim == 3) SetVolumeOutputValue("PART-W", iPoint, Node_PT->GetPrimitive(iPoint, 3));
 
   // Residuals
-  SetVolumeOutputValue("RES_ALPHA", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 0));
-  SetVolumeOutputValue("RES_ALPHA-U", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 1));
-  SetVolumeOutputValue("RES_ALPHA-V", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 2));
-//  SetVolumeOutputValue("RES_ALPHA-U", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,0));
-//  SetVolumeOutputValue("RES_ALPHA-V", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,1));
-  if (nDim == 3) SetVolumeOutputValue("RES_ALPHA-W", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 3));
+  if(splashingOutput){
+    SetVolumeOutputValue("RES_ALPHA", iPoint, solver[SPLASHINGPT_SOL]->LinSysRes(iPoint, 0));
+    SetVolumeOutputValue("RES_ALPHA-U", iPoint, solver[SPLASHINGPT_SOL]->LinSysRes(iPoint, 1));
+    SetVolumeOutputValue("RES_ALPHA-V", iPoint, solver[SPLASHINGPT_SOL]->LinSysRes(iPoint, 2));  //  SetVolumeOutputValue("RES_ALPHA-U", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,0));
+  //  SetVolumeOutputValue("RES_ALPHA-V", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,1));
+    if (nDim == 3) SetVolumeOutputValue("RES_ALPHA-W", iPoint, solver[SPLASHINGPT_SOL]->LinSysRes(iPoint, 3));
+  }
+  else{
+    SetVolumeOutputValue("RES_ALPHA", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 0));
+    SetVolumeOutputValue("RES_ALPHA-U", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 1));
+    SetVolumeOutputValue("RES_ALPHA-V", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 2));
+  //  SetVolumeOutputValue("RES_ALPHA-U", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,0));
+  //  SetVolumeOutputValue("RES_ALPHA-V", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,1));
+    if (nDim == 3) SetVolumeOutputValue("RES_ALPHA-W", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 3));
+  }
 
   // Mesh quality metrics
   if (config->GetWrt_MeshQuality()) {
@@ -237,8 +283,11 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
 }
 
 void CPTOutput::LoadSurfaceData(CConfig *config, CGeometry *geometry, CSolver **solver, unsigned long iPoint, unsigned short iMarker, unsigned long iVertex){
-
-  SetVolumeOutputValue("BETA", iPoint, fmax(0,solver[PT_SOL]->GetCollectionEfficiency(iMarker, iVertex)));
-
+  if(splashingOutput){
+    SetVolumeOutputValue("BETA", iPoint, fmax(0,solver[SPLASHINGPT_SOL]->GetCollectionEfficiency(iMarker, iVertex)));
+  }
+  else{
+    SetVolumeOutputValue("BETA", iPoint, fmax(0,solver[PT_SOL]->GetCollectionEfficiency(iMarker, iVertex)));
+  }
 }
 

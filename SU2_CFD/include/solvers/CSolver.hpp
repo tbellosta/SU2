@@ -63,6 +63,10 @@ class CSolver {
 protected:
   enum : size_t {OMP_MIN_SIZE = 32}; /*!< \brief Chunk size for small loops. */
 
+  vector<vector<su2double>> splashingBCs;/*!< \brief BCs for splashing at wall. */
+  su2double splashingDropletDiameter;/*!< \brief diameter of splashing droplets. */
+  su2double dropletDiameter;/*!< \brief diameter of splashing droplets. */
+
   int rank,       /*!< \brief MPI Rank. */
   size;           /*!< \brief MPI Size. */
   bool adjoint;   /*!< \brief Boolean to determine whether solver is initialized as a direct or an adjoint solver. */
@@ -162,6 +166,35 @@ private:
   CVariable* base_nodes;  /*!< \brief Pointer to CVariable to allow polymorphic access to solver nodes. */
 
 public:
+  
+
+  //vector<vector<su2double>> * GetSplashingBCs(){return splashingBCs;}
+
+  //void SetSplashingBCs(vector<vector<su2double>> splashingBCsToBeSet)
+  //{
+  //  cout<<"\n inside SetSplashingBCs \n";
+  //  splashingBCs = splashingBCsToBeSet;
+  //  cout<<"\n inside after SetSplashingBCs \n";
+  //}
+  void SetSplashingBCs(su2double alpha,su2double u,su2double v, unsigned int iVertex)
+  {
+    vector<su2double> tmp(3);
+    tmp[0] = alpha;
+    tmp[1] = u;
+    tmp[2] = v;
+    splashingBCs.push_back(tmp);
+  }
+
+  vector<vector<su2double>> GetSplashingBCs(){return splashingBCs;}
+
+
+  void SetSplashingDiameter(su2double diam){splashingDropletDiameter = diam;}
+  su2double GetSplashingDiameter(){return splashingDropletDiameter;}
+  void SetDropletDiameter(su2double diam){dropletDiameter = diam;}
+  su2double GetDropletDiameter(){return dropletDiameter;}
+
+  
+  
 
   CSysVector<su2double> LinSysSol;    /*!< \brief vector to store iterative solution of implicit linear system. */
   CSysVector<su2double> LinSysRes;    /*!< \brief vector to store iterative residual of implicit linear system. */

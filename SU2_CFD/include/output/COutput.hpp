@@ -61,6 +61,7 @@ protected:
   size;         /*!< \brief MPI Size. */
 
   unsigned short nDim;   /*!< \brief Physical Dimension */
+  bool splashingOutput; /*!< \brief Splashing output or not */
 
   bool multiZone,       /*!< \brief Boolean to store whether we are running a multizone problem */
   gridMovement,         /*!< \brief Boolean to store whether we have grid movement enabled */
@@ -337,6 +338,9 @@ public:
    * \return - The current surface filename
    */
   inline string GetSurface_Filename() {return surfaceFilename;}
+
+
+  inline bool GetSplashingOutput() {return splashingOutput;}
 
   /*!
    * \brief Sets the restart filename
