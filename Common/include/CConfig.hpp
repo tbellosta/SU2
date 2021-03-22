@@ -1602,11 +1602,9 @@ public:
 
   bool GetEulerianPaticleTracking(void) const { 
   return eulerianPT; 
-  cout<<" \n inside GetEulerianPaticleTracking  \n";
   }
   /* GIUSEPPESIRIANNI */
   bool GetSplashingPT(void) const { 
-  cout<<" \n PT inside GetSplashingPT  \n" << splashingPT << "\n";
   return splashingPT; }
   /* GIUSEPPESIRIANNI */
 

@@ -157,6 +157,13 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
       CollectionEfficiency[iMarker][iVertex] = 0.0;
     }
   }
+  CollectionEfficiencyCorrectedSplashing = new su2double* [nMarker];
+  for (iMarker = 0; iMarker < nMarker; iMarker++) {
+    CollectionEfficiencyCorrectedSplashing[iMarker] = new su2double [geometry->nVertex[iMarker]];
+    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
+      CollectionEfficiencyCorrectedSplashing[iMarker][iVertex] = 0.0;
+    }
+  }
 
   if (multizone){
     /*--- Initialize the BGS residuals. ---*/
@@ -177,7 +184,7 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
 
   FreestreamLWC = config->GetLiquidWaterContent();
   if(splashingPT){
-  FreestreamLWC = FreestreamLWC/10000;
+    FreestreamLWC = FreestreamLWC/10000;
   }
   FreeStreamUMag = GeometryToolbox::Norm(nDim, config->GetVelocity_FreeStream());
   ReferenceLenght = 1.0;
@@ -237,6 +244,12 @@ CPTSolver::~CPTSolver(void) {
     }
     delete [] CollectionEfficiency;
   }
+  if (CollectionEfficiencyCorrectedSplashing != nullptr) {
+    for (iMarker = 0; iMarker < nMarker; iMarker++) {
+      delete [] CollectionEfficiencyCorrectedSplashing[iMarker];
+    }
+    delete [] CollectionEfficiencyCorrectedSplashing;
+  }
 
   delete nodes;
 }
@@ -294,7 +307,7 @@ void CPTSolver:: Preprocessing(CGeometry *geometry, CSolver **solver_container, 
 void CPTSolver::Postprocessing(CGeometry *geometry, CSolver **solver_container, CConfig *config, unsigned short iMesh) {
 
   computeCollectionEfficiency(geometry,solver_container,config,iMesh);
-
+  
 //  SolveSourceSplitting(geometry, solver_container, config);
 }
 
@@ -920,6 +933,7 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
     else {
       nodes->SetDelta_Time(iPoint,0.0);
     }
+
   }
 
   /*--- Compute the min/max dt (in parallel, now over mpi ranks). ---*/
@@ -978,7 +992,6 @@ void CPTSolver::SetTime_Step(CGeometry *geometry, CSolver **solver_container, CC
 
     SU2_MPI::Allreduce(&Global_Delta_UnstTimeND, &glbDtND, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
     Global_Delta_UnstTimeND = glbDtND;
-
     config->SetDelta_UnstTimeND(Global_Delta_UnstTimeND);
   }
 
@@ -1180,14 +1193,6 @@ void CPTSolver::ImplicitEuler_Iteration(CGeometry *geometry, CSolver **solver_co
 
 void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_container, CConfig *config, unsigned long TimeIter) {
 
-  if(splashingPT){
-    cout << "\n inside set initial condition SPLASHING \n"; 
-
-  }
-  else{
-    cout << "\n inside set initial condition PT \n"; 
-
-  }
   unsigned long iPoint, Point_Fine;
   unsigned short iMesh, iChildren, iVar;
   su2double Area_Children, Area_Parent, *Solution_Fine, *Solution;
@@ -1195,7 +1200,6 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
 
   if(splashingPT){
     restart   = (config->GetRestart() && config->GetRestart_splashingPT());
-    //restart   = false;
   }
   else{
     restart   = (config->GetRestart() && config->GetRestart_PT());
@@ -1242,8 +1246,8 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
         }
 
       }
-//      solver_container[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
-//      solver_container[iMesh][PT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
+      //solver_container[iMesh][SPLASHINGPT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
+      //solver_container[iMesh][SPLASHINGPT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
     }
 
 
@@ -1446,13 +1450,12 @@ void CPTSolver::BC_Far_Field(CGeometry* geometry, CSolver** solver_container, CN
 
       }
     }
-  
 
 }
 void CPTSolver::Source_Residual(CGeometry* geometry, CSolver** solver_container, CNumerics** numerics_container,
                                 CConfig* config, unsigned short iMesh) {
 
-//  return;
+//  return
 
   /*--- Pick one numerics object per thread. ---*/
   CNumerics* numerics = numerics_container[SOURCE_FIRST_TERM];
@@ -1689,6 +1692,228 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
 }
 
 
+
+//For now computes BCs for splashing droplets using Wright&Potacpzuk model
+void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSolver, CConfig *config, bool runtimeSplashing) {
+
+    /*--- Splashing Particle system ---*/
+    unsigned short iDim, iVar;
+    su2double mu_droplets = 18.03e-6;       //droplets fluid dynamic viscosity
+    su2double rho_droplets = 1.0;           //droplets fluid density
+    su2double sigma_droplets = 0.0756;      //droplet surface tension
+    su2double diameter_splashing_droplets;  //splashing droplets diameter
+    su2double diameter_droplets = 0;        //droplets diameter config->GetParticle_Size();
+    su2double U_droplets;                   //droplets velocity
+    su2double *vinf = config->GetVelocity_FreeStream();
+    
+    su2double U_inf = GeometryToolbox::Norm(nDim, vinf);
+    
+    unsigned long iVertex, iPoint, Point_Normal;
+    unsigned short iMarker, KindBC, val_marker;
+    bool foundEulerWall=false;
+    #define MAXNDIM 3
+    su2double Area, ProjVelocity_i, V_boundary[4], V_domain[4], Normal[MAXNDIM] = {0.0}, UnitNormal[MAXNDIM] = {0.0},
+                                                              V_wall[4], Relax;
+
+
+    //Compute splashing droplets diameter (approx all splashing droplets of same diameter)
+    //Compute Re_droplets
+    su2double Re_droplets = 0;
+
+    //Compute Ohnesorge number for splashing droplets
+    su2double Oh_droplets = 0;
+    
+    //Compute K (mundo splashing parameter)
+    su2double K = 0;
+    su2double diameter_splashing_droplets_ALPHAAVG = 0;
+    su2double tot_alpha = 0;
+    //LWC_threshold indicates the LWC below which it is considered functionally 0
+    su2double LWC_threshold = 1e-10;
+
+
+
+    //only finest mesh (?) single grid iteration (?)
+    unsigned short FinestMesh = config->GetFinestMesh();    
+    CGeometry* geometry_fine = geometry;
+    diameter_droplets = GetDropletDiameter();
+    su2double LWC_inf = GetFreestreamLWC();                   //droplets freestream LWC
+    
+    
+  
+    //searching for euler wall marker (FOR NOW ONLY ONE EULER WALL ALLOWED (?))
+    for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
+      KindBC = config->GetMarker_All_KindBC(iMarker);
+      if(KindBC == EULER_WALL){
+        val_marker = iMarker;    
+        foundEulerWall=true;    
+      }
+    } 
+
+    //Save splashing BC (ONLY ONE WALL ALLOWED AT THE MOMENT)
+    
+    //vector<vector<su2double>> splashingBCs(geometry_fine->nVertex[val_marker], vector<su2double>(3));//vector containing bcs for splashing droplets:   vec[ivertex][ivar]
+    
+    
+    //Iterate on vertices of Wall BC ONLY 2D ONLY 2D ONLY 2D
+    if(foundEulerWall){
+      for (iVertex = 0; iVertex < geometry_fine->nVertex[val_marker]; iVertex++) {
+
+        geometry_fine->vertex[val_marker][iVertex]->GetNormal(Normal);
+        
+        //for (iDim = 0; iDim < nDim; iDim++) Normal[iDim] = -Normal[iDim];
+
+        /*--- Compute unit normal, to be used for unit tangential, projected velocity and velocity
+              component gradients. ---*/
+        Area = GeometryToolbox::Norm(nDim,Normal);
+
+        for (iDim = 0; iDim < nDim; iDim++) UnitNormal[iDim] = Normal[iDim] / Area;
+
+
+        iPoint = geometry_fine->vertex[val_marker][iVertex]->GetNode();
+        CVariable* nodes = GetNodes();
+
+        /*--- Get boundary solution at this boundary node of droplets---*/
+        //check if not halo node
+        if (geometry_fine->nodes->GetDomain(iPoint)) {
+          unsigned short nVar = GetnVar();
+          for (iVar = 0; iVar < nVar; iVar++) V_domain[iVar] = nodes->GetPrimitive(iPoint,iVar);
+        }
+
+        U_droplets = sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2]);
+        //Compute splashing droplets diameter (approx all splashing droplets of same diameter)
+        //Compute Re_droplets
+        su2double Re_droplets = (rho_droplets * U_droplets * U_inf * diameter_droplets) / mu_droplets;
+
+        //Compute Ohnesorge number for splashing droplets
+        su2double Oh_droplets = mu_droplets / sqrt(rho_droplets * sigma_droplets * diameter_droplets);
+        
+        //Compute K (mundo splashing parameter)
+        su2double K = Oh_droplets * pow(Re_droplets,1.25);
+        diameter_splashing_droplets = diameter_droplets * 8.72 * exp(-0.0281 * K);
+        //Compute for each vertex KW (LEWICE splashing parameter)
+        su2double LWC = V_domain[0] * rho_droplets;
+        if(LWC>LWC_threshold){
+          su2double KW = pow(K,0.859) * pow((rho_droplets / (LWC_inf * LWC)), 0.125);
+
+
+          su2double theta;
+
+          //Compute wall/droplets impact angle
+          if(nDim==2){
+            theta = 0.5*M_PI -  acos(abs(-V_domain[1]*UnitNormal[0]-V_domain[2]*UnitNormal[1]) / (sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2])));
+          }
+          else{
+            theta = 0.5*M_PI - acos((-V_domain[1]*UnitNormal[0]-V_domain[2]*UnitNormal[1]-V_domain[3]*UnitNormal[2]) / (sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2] + V_domain[3]*V_domain[3])));
+          }
+
+          su2double theta_deg = (180 / M_PI * theta);
+          
+          su2double splashing_discriminator = 0;
+          su2double theta_threshold = 0.001;          //threshold below which we will consider theta as basically 0 (no splashing can occur, floating point errors can occur)
+          
+          if(90 - abs(theta_deg) < theta_threshold){
+            theta = 90;
+            splashing_discriminator = -1;             //no splashing
+          }else{
+            splashing_discriminator = ( KW / pow(sin(abs(theta)), 1.25) ) - 200;
+          }
+              
+
+          //cout << "\ntheta = "<<theta_deg<<"deg\t Splash? = "<<(splashing_discriminator>0);
+          //cout << "\tdiameter = "<<diameter_splashing_droplets;
+
+          su2double U_x_splashed = 0;
+          su2double U_y_splashed = 0;
+          su2double LWC_splashed = -1;
+          if((diameter_splashing_droplets / diameter_droplets) < 1){
+            if((diameter_splashing_droplets / diameter_droplets) > 0.05){
+              //all ok
+            }else{
+              diameter_splashing_droplets = 0.05 * diameter_droplets;          
+            }        
+          }else{
+              diameter_splashing_droplets = 1.0 * diameter_droplets;
+          }
+
+          //Verify if threshold is surpassed and therefore splashing occurs
+          if(splashing_discriminator > 0){
+            //splashing occurs
+            su2double U_normal_domain = V_domain[1]*UnitNormal[0] + V_domain[2]*UnitNormal[1];
+            su2double U_tangential_domain =  V_domain[1]*UnitNormal[1] - V_domain[2]*UnitNormal[0];
+            LWC_splashed = LWC * 0.7 * (1 - sin(theta)) * (1 - exp(-0.0092026 * splashing_discriminator));
+            su2double U_tangential_splashed = U_tangential_domain * (1.075 - 0.0025 * theta_deg);
+            su2double U_normal_splashed = - U_normal_domain * (0.3 - 0.002 * theta_deg);
+            U_x_splashed = U_normal_splashed * Normal[0] + U_tangential_splashed * Normal[1];
+            U_y_splashed = U_normal_splashed * Normal[1] - U_tangential_splashed * Normal[0];
+
+
+            tot_alpha += LWC_splashed / rho_droplets;
+            diameter_splashing_droplets_ALPHAAVG += (LWC_splashed / rho_droplets)*diameter_splashing_droplets;
+
+            if(CollectionEfficiencyCorrectedSplashing != nullptr && !runtimeSplashing){
+              //collection efficiency correction
+              
+              su2double beta_correction_coeff = 1 - (LWC_splashed / LWC) * (sqrt(U_x_splashed*U_x_splashed + U_y_splashed*U_y_splashed) / (U_droplets));
+              
+              CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] = CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] * (beta_correction_coeff) ;
+            
+            }
+          }
+          else{
+            //no splashing occurs
+
+          }
+
+          //save in splashing solver the BCs
+          if(runtimeSplashing){
+            splashingSolver->SetSplashingBCs(LWC_splashed / rho_droplets, U_x_splashed, U_y_splashed, iVertex);
+            
+            //splashingSolver->SetSplashingBCs(0.1, UnitNormal[0],UnitNormal[1], iVertex);
+            
+          }
+        
+
+        }
+        else{//no splashing, LWC too low
+          if(runtimeSplashing){
+            splashingSolver->SetSplashingBCs(-1, 0, 0, iVertex);
+            
+            //splashingSolver->SetSplashingBCs(0.1, UnitNormal[0],UnitNormal[1], iVertex);
+            
+          }
+
+        }
+        
+
+      }
+
+      if(foundEulerWall){
+        
+        //splashingSolver->SetSplashingDiameter(diameter_splashing_droplets_ALPHAAVG / tot_alpha); 
+        splashingSolver->SetSplashingDiameter(diameter_droplets); 
+        
+
+
+          //All BCs are in a vector of vectors in the splashing solver container (?)
+      }
+    }
+    else{
+
+    }
+
+  splashingSolver->SetSplashingDiameter(diameter_droplets); 
+  cout << "\n ("<<rank<<") Diameter Splashing Droplets = "<<splashingSolver->GetSplashingDiameter()<<"\n";
+
+  //InitiateComms(geometry, config, SOLUTION);
+  //CompleteComms(geometry, config, SOLUTION);
+  //splashingSolver->InitiateComms(geometry, config, SOLUTION);
+  //splashingSolver->CompleteComms(geometry, config, SOLUTION);
+}
+
+
+
+
+
 void CPTSolver::BC_Splashing_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
                                             CNumerics* visc_numerics, CConfig* config, unsigned short val_marker)
   {
@@ -1743,15 +1968,6 @@ void CPTSolver::BC_Splashing_Wall(CGeometry* geometry, CSolver** solver_containe
 
       /*--- Check if the node belongs to the domain (i.e., not a halo node) ---*/
       if (geometry->nodes->GetDomain(iPoint)) {
-        /*-------------------------------------------------------------------------------*/
-        /*--- Step 1: For the convective fluxes, create a reflected state of the      ---*/
-        /*---         Primitive variables by copying all interior values to the       ---*/
-        /*---         reflected. Only the velocity is mirrored along the symmetry     ---*/
-        /*---         axis. Based on the Upwind_Residual routine.                     ---*/
-        /*-------------------------------------------------------------------------------*/
-
-      //      Point_Normal = geometry->vertex[val_marker][iVertex]->GetNormal_Neighbor();
-
         /*--- Grid movement ---*/
         if (dynamic_grid)
           conv_numerics->SetGridVel(geometry->nodes->GetGridVel(iPoint), geometry->nodes->GetGridVel(iPoint));
@@ -1791,7 +2007,7 @@ void CPTSolver::BC_Splashing_Wall(CGeometry* geometry, CSolver** solver_containe
         //V_bc[1]=1;
         //V_bc[2]=1;
 
-        if(V_bc < 0){
+        if(V_bc[0] < 0){
           //cout<<"\n NO SPLASH BC_SPLASHING_WALL \n";
           //no inlet of splashing droplets
 
@@ -1824,7 +2040,7 @@ void CPTSolver::BC_Splashing_Wall(CGeometry* geometry, CSolver** solver_containe
 
       }    // if GetDomain
     }      // for iVertex
-  
+
   }
 
 void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
@@ -1859,7 +2075,8 @@ void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
 //        CollectionEfficiency[iMarker][iVertex] += nodes->GetPrimitive(iPoint, iDim + 1) * Normal[iDim];
         CollectionEfficiency[iMarker][iVertex] += nodes->GetSolution(iPoint, iDim + 1) * Normal[iDim];
 
-      CollectionEfficiency[iMarker][iVertex] /= NDfactor;
+        CollectionEfficiency[iMarker][iVertex] /= NDfactor;
+        CollectionEfficiencyCorrectedSplashing[iMarker][iVertex] = CollectionEfficiency[iMarker][iVertex];
 
     }
   }
@@ -2097,6 +2314,8 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
   su2double d = dropletDiameter;
   if(splashingPT){
     d = GetSplashingDiameter();
+
+
 
   }
   su2double mu = 18.03e-6;

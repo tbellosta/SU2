@@ -298,12 +298,10 @@ CSolver* CSolverFactory::CreateSubSolver(SUB_SOLVER_TYPE kindSolver, CSolver **s
       }
       metaData.integrationType = INTEGRATION_TYPE::SINGLEGRID;
       break;
-    /*GIUSEPPESIRIANNI*/
     case SUB_SOLVER_TYPE::SPLASHINGPT:
       genericSolver = new CPTSolver(geometry, config, iMGLevel, true);
       metaData.integrationType = INTEGRATION_TYPE::SINGLEGRID;
       break;
-    /*GIUSEPPESIRIANNI*/
     case SUB_SOLVER_TYPE::DISC_ADJ_HEAT:
       genericSolver = CreateHeatSolver(solver, geometry, config, iMGLevel, true);
       metaData.integrationType = INTEGRATION_TYPE::DEFAULT;

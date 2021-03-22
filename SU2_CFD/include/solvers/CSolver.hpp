@@ -182,6 +182,8 @@ public:
     tmp[0] = alpha;
     tmp[1] = u;
     tmp[2] = v;
+
+
     splashingBCs.push_back(tmp);
   }
 
@@ -3167,6 +3169,8 @@ public:
 
 
   inline virtual su2double GetCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const { return 0; }
+
+  inline virtual su2double GetCorrectedCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const { return 0; }
 
   /*!
    * \brief A virtual member.

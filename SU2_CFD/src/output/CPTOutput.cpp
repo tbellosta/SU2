@@ -29,6 +29,7 @@
 #include "../../include/output/CPTOutput.hpp"
 #include "../../../Common/include/geometry/CGeometry.hpp"
 #include "../../include/solvers/CSolver.hpp"
+#include "../../include/solvers/CPTSolver.hpp"
 
 CPTOutput::CPTOutput(CConfig *config, unsigned short nDim, bool splashing) : COutput(config, nDim, false) {
 
@@ -183,6 +184,7 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
   AddVolumeOutput("VOLUME_RATIO",  "Volume_Ratio",  "MESH_QUALITY", "CV Sub-Volume Ratio");
 
   AddVolumeOutput("BETA", "CollEff", "SOLUTION", "Collection Efficiency");
+  AddVolumeOutput("BETA_CORRECTED", "CollEff_Corrected", "SOLUTION", "Collection Efficiency Corrected for Splashing");
 
   if (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED)
   AddVolumeOutput("SENSOR", "Sensor", "SOLUTION", "Sensor");
@@ -288,6 +290,12 @@ void CPTOutput::LoadSurfaceData(CConfig *config, CGeometry *geometry, CSolver **
   }
   else{
     SetVolumeOutputValue("BETA", iPoint, fmax(0,solver[PT_SOL]->GetCollectionEfficiency(iMarker, iVertex)));
+    
+    CPTSolver *PTSolver = dynamic_cast<CPTSolver*>(solver[PT_SOL]);
+    if(config->GetSplashingPT() && PTSolver->CollectionEfficiencyCorrectedSplashing !=nullptr){
+
+      SetVolumeOutputValue("BETA_CORRECTED", iPoint, fmax(0,PTSolver->CollectionEfficiencyCorrectedSplashing[iMarker][iVertex]));
+    }
   }
 }
 

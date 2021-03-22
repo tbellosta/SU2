@@ -1743,6 +1743,10 @@ void COutput::Postprocess_HistoryData(CConfig *config){
   for (unsigned short iField = 0; iField < historyOutput_List.size(); iField++){
     const string &fieldIdentifier = historyOutput_List[iField];
     const HistoryOutputField &currentField = historyOutput_Map.at(fieldIdentifier);
+
+    //cout<< " \n \t "<<rank<<" COUT currentField.value in COutput::Postprocess_HistoryData()\n";
+    //cout<< " \n \t "<<rank<<" "<<fieldIdentifier<<"  "<<currentField.value<<" \n";
+    
     if (currentField.fieldType == HistoryFieldType::RESIDUAL){
       if ( SetInit_Residuals(config) || (currentField.value > initialResiduals[fieldIdentifier]) ) {
         initialResiduals[fieldIdentifier] = currentField.value;
@@ -1771,10 +1775,12 @@ void COutput::Postprocess_HistoryData(CConfig *config){
     }
   }
 
+
   map<string, pair<su2double, int> >::iterator it = Average.begin();
   for (it = Average.begin(); it != Average.end(); it++){
     const su2double& value = it->second.first;
     const int& count = it->second.second;
+
     const su2double average = value/count;
     if (historyOutput_Map.count("AVG_" + it->first) > 0 )
       SetHistoryOutputValue("AVG_" + it->first, average);

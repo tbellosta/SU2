@@ -212,6 +212,7 @@ bool CFluidIteration::Monitor(COutput* output, CIntegration**** integration, CGe
   UsedTime = StopTime - StartTime;
 
   if (config[val_iZone]->GetMultizone_Problem() || config[val_iZone]->GetSinglezone_Driver()) {
+
     output->SetHistory_Output(geometry[val_iZone][INST_0][MESH_0], solver[val_iZone][INST_0][MESH_0], config[val_iZone],
                               config[val_iZone]->GetTimeIter(), config[val_iZone]->GetOuterIter(),
                               config[val_iZone]->GetInnerIter());

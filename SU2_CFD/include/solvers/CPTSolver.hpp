@@ -50,7 +50,6 @@ class CPTSolver final : public CSolver {
 
   vector<vector<su2double>> splashingBCs;/*!< \brief vector containing BCs for splashing at wall. */
 
-  su2double **CollectionEfficiency;
 
   su2double FreestreamLWC, FreeStreamUMag, ReferenceLenght;
   su2double p0,t0,mu0,a0;
@@ -89,6 +88,9 @@ class CPTSolver final : public CSolver {
   void SolveSourceSplitting(CGeometry *geometry, CSolver **solver_container, CConfig *config);
 
  public:
+  su2double **CollectionEfficiencyCorrectedSplashing; //public for now
+  su2double **CollectionEfficiency; //public for now
+  su2double GetFreestreamLWC(){return FreestreamLWC;}
 
   /*!
    * \brief Constructor of the class.
@@ -294,6 +296,11 @@ class CPTSolver final : public CSolver {
                     CConfig *config,
                     unsigned short val_marker); //NO FINAL ????
 
+  void ComputeSplashingBCs(CGeometry *geometry,
+                    CPTSolver *splashingSolver,  
+                    CConfig *config,
+                    bool runtimeSplashing);
+
   void BC_Euler_Wall(CGeometry *geometry,
                         CSolver **solver_container,
                         CNumerics *conv_numerics,
@@ -303,6 +310,9 @@ class CPTSolver final : public CSolver {
 
   inline su2double GetCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const final {
     return CollectionEfficiency[val_marker][val_vertex];
+  }
+  inline su2double GetCorrectedCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const final {
+    return CollectionEfficiencyCorrectedSplashing[val_marker][val_vertex];
   }
 
   void computeCollectionEfficiency(CGeometry *geometry,

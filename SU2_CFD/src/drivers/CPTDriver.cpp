@@ -49,7 +49,6 @@ CPTDriver::CPTDriver(char* confFile,
 
 }
 
-/* GIUSEPPESIRIANNI */
 
 CPTDriver::CPTDriver(char* confFile,
                        unsigned short val_nZone,
@@ -69,7 +68,6 @@ CPTDriver::CPTDriver(char* confFile,
 
 
 }
-/* GIUSEPPESIRIANNI */
 
 
 CPTDriver::~CPTDriver(void) {
@@ -139,6 +137,8 @@ void CPTDriver::StartSolver() {
 
     Run();
 
+
+
     /*--- Perform some postprocessing on the solution before the update ---*/
 
     Postprocess();
@@ -151,16 +151,51 @@ void CPTDriver::StartSolver() {
 
     Monitor(TimeIter);
 
+#ifdef HAVE_MPI
+  SU2_MPI::Barrier(MPI_COMM_WORLD);
+#endif
+
+    if(splashing){
+      unsigned short FinestMesh = config_container[ZONE_0]->GetFinestMesh();    
+      CGeometry* geometry_fine = geometry_container[ZONE_0][INST_0][FinestMesh];
+      CSolver** solvers_fine = solver_container[ZONE_0][INST_0][FinestMesh];
+      CPTSolver *splashingsolver = dynamic_cast<CPTSolver*>(solvers_fine[SPLASHINGPT_SOL]);
+      CPTSolver *PTsolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
+
+      
+      /*--- Compute BCs for splashing droplets (and corrects BETA) ---*/
+      PTsolver->ComputeSplashingBCs(geometry_fine,splashingsolver,config_container[ZONE_0],runtimeSplashing);
+           
+    }
+
     /*--- Output the solution in files. ---*/
     Output(TimeIter);
 
+#ifdef HAVE_MPI
+  SU2_MPI::Barrier(MPI_COMM_WORLD);
+#endif
     if(splashing){
       /*--- Set splashing as runtime ---*/
       setRuntimeSplashing();
 
       /*--- Compute BCs for splashing droplets ---*/
-      ComputeSplashingBCs();
       
+      unsigned short FinestMesh = config_container[ZONE_0]->GetFinestMesh();    
+      CGeometry* geometry_fine = geometry_container[ZONE_0][INST_0][FinestMesh];
+      CSolver** solvers_fine = solver_container[ZONE_0][INST_0][FinestMesh];
+      CPTSolver *splashingsolver = dynamic_cast<CPTSolver*>(solvers_fine[SPLASHINGPT_SOL]);
+      CPTSolver *PTsolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
+
+      
+      /*--- Compute BCs for splashing droplets (and corrects BETA) ---*/
+      PTsolver->ComputeSplashingBCs(geometry_fine,splashingsolver,config_container[ZONE_0],runtimeSplashing);
+           
+      
+
+
+#ifdef HAVE_MPI
+  SU2_MPI::Barrier(MPI_COMM_WORLD);
+#endif
 
       cout << "\n before preprocess \n";
       Preprocess(TimeIter);
@@ -209,10 +244,10 @@ void CPTDriver::ComputeSplashingBCs() {
     su2double sigma_droplets = 0.0756;      //droplet surface tension
     su2double diameter_splashing_droplets;  //splashing droplets diameter
     su2double diameter_droplets = 0;        //droplets diameter config->GetParticle_Size();
-    su2double U_droplets;                   //droplets freestream droplets
+    su2double U_droplets;                   //droplets velocity
     su2double *vinf = config_container[ZONE_0]->GetVelocity_FreeStream();
     
-    U_droplets = GeometryToolbox::Norm(nDim, vinf);
+    su2double U_inf = GeometryToolbox::Norm(nDim, vinf);
     
     unsigned long iVertex, iPoint, Point_Normal;
     unsigned short iMarker, KindBC, val_marker;
@@ -240,7 +275,10 @@ void CPTDriver::ComputeSplashingBCs() {
     CGeometry* geometry_fine = geometry_container[ZONE_0][INST_0][FinestMesh];
     CSolver** solvers_fine = solver_container[ZONE_0][INST_0][FinestMesh];
     CSolver *splashingsolver = (solver_container[ZONE_0][INST_0][FinestMesh][SPLASHINGPT_SOL]);
+    CPTSolver *PTSolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
     diameter_droplets = solvers_fine[PT_SOL]->GetDropletDiameter();
+    su2double LWC_inf = PTSolver->GetFreestreamLWC();                   //droplets freestream LWC
+    
     
   
     //searching for euler wall marker (FOR NOW ONLY ONE EULER WALL ALLOWED (?))
@@ -248,8 +286,7 @@ void CPTDriver::ComputeSplashingBCs() {
       KindBC = config_container[ZONE_0]->GetMarker_All_KindBC(iMarker);
       if(KindBC == EULER_WALL){
         val_marker = iMarker;        
-      }
-    } 
+      }} 
 
     //Save splashing BC (ONLY ONE WALL ALLOWED AT THE MOMENT)
     
@@ -283,7 +320,7 @@ void CPTDriver::ComputeSplashingBCs() {
       U_droplets = sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2]);
       //Compute splashing droplets diameter (approx all splashing droplets of same diameter)
       //Compute Re_droplets
-      su2double Re_droplets = (rho_droplets * U_droplets * diameter_droplets) / mu_droplets;
+      su2double Re_droplets = (rho_droplets * U_droplets * U_inf * diameter_droplets) / mu_droplets;
 
       //Compute Ohnesorge number for splashing droplets
       su2double Oh_droplets = mu_droplets / sqrt(rho_droplets * sigma_droplets * diameter_droplets);
@@ -293,7 +330,7 @@ void CPTDriver::ComputeSplashingBCs() {
       diameter_splashing_droplets = diameter_droplets * 8.72 * exp(-0.0281 * K);
       //Compute for each vertex KW (LEWICE splashing parameter)
       su2double LWC = V_domain[0] * rho_droplets;
-      su2double KW = pow(K,0.859) * pow((rho_droplets / LWC), 0.125);
+      su2double KW = pow(K,0.859) * pow((rho_droplets / (LWC_inf * LWC)), 0.125);
 
       su2double theta;
 
@@ -316,8 +353,8 @@ void CPTDriver::ComputeSplashingBCs() {
         splashing_discriminator = ( KW / pow(sin(abs(theta)), 1.25) ) - 200;
       }
 
-      cout << "\ntheta = "<<theta_deg<<"deg\t Splash? = "<<(splashing_discriminator>0);
-      cout << "\tdiameter = "<<diameter_splashing_droplets;
+      //cout << "\ntheta = "<<theta_deg<<"deg\t Splash? = "<<(splashing_discriminator>0);
+      //cout << "\tdiameter = "<<diameter_splashing_droplets;
 
       su2double U_x_splashed = 0;
       su2double U_y_splashed = 0;
@@ -346,6 +383,13 @@ void CPTDriver::ComputeSplashingBCs() {
 
         tot_alpha += LWC_splashed / rho_droplets;
         diameter_splashing_droplets_ALPHAAVG += (LWC_splashed / rho_droplets)*diameter_splashing_droplets;
+
+        if(PTSolver->CollectionEfficiencyCorrectedSplashing != nullptr && !runtimeSplashing){
+          //collection efficiency correction
+          su2double beta_correction_coeff = 1 - (LWC_splashed / LWC) * (sqrt(U_x_splashed*U_x_splashed + U_y_splashed*U_y_splashed) / (U_droplets));
+          PTSolver->CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] = PTSolver->CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] * (beta_correction_coeff) ;
+         
+        }
       }
       else{
         //no splashing occurs
@@ -353,8 +397,10 @@ void CPTDriver::ComputeSplashingBCs() {
       }
 
       //save in splashing solver the BCs
-      splashingsolver->SetSplashingBCs(LWC_splashed / rho_droplets, U_x_splashed, U_y_splashed, iVertex);
-  
+      if(runtimeSplashing){
+        splashingsolver->SetSplashingBCs(LWC_splashed / rho_droplets, U_x_splashed, U_y_splashed, iVertex);
+        
+      }
       
 
 
@@ -375,6 +421,10 @@ void CPTDriver::ComputeSplashingBCs() {
 }
 
 void CPTDriver::Preprocess(unsigned long TimeIter) {
+  
+
+  cout << "\n PREPROCESS\n";
+
 
   /*--- Set runtime option ---*/
 
@@ -413,13 +463,12 @@ void CPTDriver::Preprocess(unsigned long TimeIter) {
     }
   }
 
-  cout << "\n before idef HAVE_MPI in CPTDriver::Preprocess() (splashing seems to have problems here)\n";
 
 #ifdef HAVE_MPI
   SU2_MPI::Barrier(MPI_COMM_WORLD);
 #endif
 
-  cout << "\n after idef HAVE_MPI in CPTDriver::Preprocess()  \n";
+
   /*--- Run a predictor step ---*/
   if (config_container[ZONE_0]->GetPredictor() && runtimeFlow)
     iteration_container[ZONE_0][INST_0]->Predictor(output_container[ZONE_0], integration_container, geometry_container, solver_container,
@@ -518,6 +567,7 @@ void CPTDriver::Output(unsigned long TimeIt) {
 
   /*--- Time the output for performance benchmarking. ---*/
 
+  
   StopTime = SU2_MPI::Wtime();
 
   UsedTimeCompute += StopTime-StartTime;

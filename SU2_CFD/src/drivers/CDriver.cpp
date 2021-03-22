@@ -163,6 +163,7 @@ CDriver::CDriver(char* confFile, unsigned short val_nZone, SU2_Comm MPICommunica
       geometry_container[iZone][iInst]       = nullptr;
       iteration_container[iZone][iInst]      = nullptr;
       iteration_container_PT[iZone][iInst]   = nullptr;
+      iteration_container_splashingPT[iZone][iInst]   = nullptr;
       solver_container[iZone][iInst]         = nullptr;
       integration_container[iZone][iInst]    = nullptr;
       grid_movement[iZone][iInst]            = nullptr;
@@ -451,13 +452,17 @@ void CDriver::Postprocessing() {
   for (iZone = 0; iZone < nZone; iZone++) {
     for (iInst = 0; iInst < nInst[iZone]; iInst++) {
       delete iteration_container[iZone][iInst];
+      delete iteration_container[iZone][iInst];
       delete iteration_container_PT[iZone][iInst];
+      delete iteration_container_splashingPT[iZone][iInst];
     }
     delete [] iteration_container[iZone];
     delete [] iteration_container_PT[iZone];
+    delete [] iteration_container_splashingPT[iZone];
   }
   delete [] iteration_container;
   delete [] iteration_container_PT;
+  delete [] iteration_container_splashingPT;
   if (rank == MASTER_NODE) cout << "Deleted CIteration container." << endl;
 
   if (interface_container != nullptr) {
@@ -1359,6 +1364,9 @@ void CDriver::Solver_Restart(CSolver ***solver, CGeometry **geometry,
     }
     if (pt && config->GetRestart_PT()) {
       solver[MESH_0][PT_SOL]->LoadRestart(geometry, solver, config, val_iter, update_geo);
+    }
+    if (config->GetSplashingPT() && config->GetRestart_splashingPT()) {
+      solver[MESH_0][SPLASHINGPT_SOL]->LoadRestart(geometry, solver, config, val_iter, update_geo);
     }
   }
 
@@ -3356,6 +3364,8 @@ bool CFluidDriver::Monitor(unsigned long ExtIter) {
       StopCalc = integration_container[ZONE_0][INST_0][HEAT_SOL]->GetConvergence(); break;
     case PARTICLE_TRACKING:
       StopCalc = integration_container[ZONE_0][INST_0][PT_SOL]->GetConvergence(); break;
+    case SPLASHING_PARTICLE_TRACKING:
+      StopCalc = integration_container[ZONE_0][INST_0][SPLASHINGPT_SOL]->GetConvergence(); break;
     case FEM_ELASTICITY:
       StopCalc = integration_container[ZONE_0][INST_0][FEA_SOL]->GetConvergence(); break;
     case ADJ_EULER: case ADJ_NAVIER_STOKES: case ADJ_RANS:
