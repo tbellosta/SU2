@@ -1699,9 +1699,10 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
     /*--- Splashing Particle system ---*/
     unsigned short iDim, iVar;
     su2double mu_droplets = 18.03e-6;       //droplets fluid dynamic viscosity
-    su2double rho_droplets = 1.0;           //droplets fluid density
+    su2double rho_droplets = 1000;           //droplets fluid density
     su2double sigma_droplets = 0.0756;      //droplet surface tension
     su2double diameter_splashing_droplets;  //splashing droplets diameter
+    su2double diameter_splashing_dropletsCOMP=0;  //splashing droplets diameter
     su2double diameter_droplets = 0;        //droplets diameter config->GetParticle_Size();
     su2double U_droplets;                   //droplets velocity
     su2double *vinf = config->GetVelocity_FreeStream();
@@ -1728,7 +1729,7 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
     su2double diameter_splashing_droplets_ALPHAAVG = 0;
     su2double tot_alpha = 0;
     //LWC_threshold indicates the LWC below which it is considered functionally 0
-    su2double LWC_threshold = 1e-10;
+    su2double LWC_threshold = 1e-20;
 
 
 
@@ -1778,11 +1779,24 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
           unsigned short nVar = GetnVar();
           for (iVar = 0; iVar < nVar; iVar++) V_domain[iVar] = nodes->GetPrimitive(iPoint,iVar);
         }
+        su2double theta;
+
+        //Compute wall/droplets impact angle
+        if(nDim==2){
+          theta = 0.5*M_PI -  acos(abs(-V_domain[1]*UnitNormal[0]-V_domain[2]*UnitNormal[1]) / (sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2])));
+        }
+        else{
+          theta = 0.5*M_PI - acos((-V_domain[1]*UnitNormal[0]-V_domain[2]*UnitNormal[1]-V_domain[3]*UnitNormal[2]) / (sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2] + V_domain[3]*V_domain[3])));
+        }
+
+        su2double U_normal_domain = (V_domain[1]*UnitNormal[0] + V_domain[2]*UnitNormal[1]);
+        su2double U_tangential_domain =  V_domain[1]*UnitNormal[1] - V_domain[2]*UnitNormal[0];
 
         U_droplets = sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2]);
         //Compute splashing droplets diameter (approx all splashing droplets of same diameter)
         //Compute Re_droplets
-        su2double Re_droplets = (rho_droplets * U_droplets * U_inf * diameter_droplets) / mu_droplets;
+
+        su2double Re_droplets = (rho_droplets * abs(U_normal_domain * U_inf) * diameter_droplets) / mu_droplets;
 
         //Compute Ohnesorge number for splashing droplets
         su2double Oh_droplets = mu_droplets / sqrt(rho_droplets * sigma_droplets * diameter_droplets);
@@ -1790,21 +1804,13 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
         //Compute K (mundo splashing parameter)
         su2double K = Oh_droplets * pow(Re_droplets,1.25);
         diameter_splashing_droplets = diameter_droplets * 8.72 * exp(-0.0281 * K);
-        //Compute for each vertex KW (LEWICE splashing parameter)
         su2double LWC = V_domain[0] * rho_droplets;
-        if(LWC>LWC_threshold){
+        if(LWC>LWC_threshold && U_normal_domain<0){
+          //Compute for each vertex KW (LEWICE splashing parameter)
           su2double KW = pow(K,0.859) * pow((rho_droplets / (LWC_inf * LWC)), 0.125);
 
 
-          su2double theta;
-
-          //Compute wall/droplets impact angle
-          if(nDim==2){
-            theta = 0.5*M_PI -  acos(abs(-V_domain[1]*UnitNormal[0]-V_domain[2]*UnitNormal[1]) / (sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2])));
-          }
-          else{
-            theta = 0.5*M_PI - acos((-V_domain[1]*UnitNormal[0]-V_domain[2]*UnitNormal[1]-V_domain[3]*UnitNormal[2]) / (sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2] + V_domain[3]*V_domain[3])));
-          }
+          
 
           su2double theta_deg = (180 / M_PI * theta);
           
@@ -1838,23 +1844,22 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
           //Verify if threshold is surpassed and therefore splashing occurs
           if(splashing_discriminator > 0){
             //splashing occurs
-            su2double U_normal_domain = V_domain[1]*UnitNormal[0] + V_domain[2]*UnitNormal[1];
-            su2double U_tangential_domain =  V_domain[1]*UnitNormal[1] - V_domain[2]*UnitNormal[0];
+            su2double U_normal_splashed = abs(U_normal_domain) * (0.3 - 0.002 * theta_deg);
             LWC_splashed = LWC * 0.7 * (1 - sin(theta)) * (1 - exp(-0.0092026 * splashing_discriminator));
             su2double U_tangential_splashed = U_tangential_domain * (1.075 - 0.0025 * theta_deg);
-            su2double U_normal_splashed = - U_normal_domain * (0.3 - 0.002 * theta_deg);
             U_x_splashed = U_normal_splashed * Normal[0] + U_tangential_splashed * Normal[1];
             U_y_splashed = U_normal_splashed * Normal[1] - U_tangential_splashed * Normal[0];
 
 
-            tot_alpha += LWC_splashed / rho_droplets;
-            diameter_splashing_droplets_ALPHAAVG += (LWC_splashed / rho_droplets)*diameter_splashing_droplets;
+            tot_alpha += LWC_splashed;
+            diameter_splashing_droplets_ALPHAAVG += (LWC_splashed)*diameter_splashing_droplets;
 
             if(CollectionEfficiencyCorrectedSplashing != nullptr && !runtimeSplashing){
               //collection efficiency correction
-              
+              //I think this correction is wrong
               su2double beta_correction_coeff = 1 - (LWC_splashed / LWC) * (sqrt(U_x_splashed*U_x_splashed + U_y_splashed*U_y_splashed) / (U_droplets));
-              
+              beta_correction_coeff = 1 - LWC_splashed / LWC;
+              //cout << "\n("<<rank<<") beta_correction_coeff = "<<beta_correction_coeff;
               CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] = CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] * (beta_correction_coeff) ;
             
             }
@@ -1868,13 +1873,14 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
           if(runtimeSplashing){
             splashingSolver->SetSplashingBCs(LWC_splashed / rho_droplets, U_x_splashed, U_y_splashed, iVertex);
             
+              cout << "\n("<<rank<<") U dot n = "<<((U_x_splashed * UnitNormal[0] + U_y_splashed* UnitNormal[1])>0);
             //splashingSolver->SetSplashingBCs(0.1, UnitNormal[0],UnitNormal[1], iVertex);
             
           }
         
 
         }
-        else{//no splashing, LWC too low
+        else{//no splashing, LWC too low or U_normal<0
           if(runtimeSplashing){
             splashingSolver->SetSplashingBCs(-1, 0, 0, iVertex);
             
@@ -1887,22 +1893,28 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
 
       }
 
-      if(foundEulerWall){
+
+      if(foundEulerWall && tot_alpha!=0){
         
         //splashingSolver->SetSplashingDiameter(diameter_splashing_droplets_ALPHAAVG / tot_alpha); 
+        //cout << "\n ("<<rank<<") totalpha = "<<tot_alpha;
+        diameter_splashing_dropletsCOMP = diameter_splashing_droplets_ALPHAAVG / tot_alpha;
         splashingSolver->SetSplashingDiameter(diameter_droplets); 
         
 
 
           //All BCs are in a vector of vectors in the splashing solver container (?)
       }
+
     }
     else{
 
     }
 
-  splashingSolver->SetSplashingDiameter(diameter_droplets); 
-  cout << "\n ("<<rank<<") Diameter Splashing Droplets = "<<splashingSolver->GetSplashingDiameter()<<"\n";
+
+  splashingSolver->SetSplashingDiameter(diameter_droplets); //Must correct this still, cant converge as is
+  cout << "\n ("<<rank<<") Diameter Splashing DropletsCOMP = "<<diameter_splashing_dropletsCOMP<<"\n";
+  cout << " ("<<rank<<") Diameter Splashing Droplets = "<<splashingSolver->GetSplashingDiameter()<<"\n";
 
   //InitiateComms(geometry, config, SOLUTION);
   //CompleteComms(geometry, config, SOLUTION);
@@ -2053,7 +2065,7 @@ void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
 
   su2double Normal[3], Area, NDfactor;
 
-  NDfactor = 1.0;
+  NDfactor = 1.0;//I believe it should be freestreamLWC
 
   for (iMarker = 0; iMarker < nMarker; ++iMarker) {
     for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; ++iVertex) {
@@ -2319,6 +2331,7 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
 
   }
   su2double mu = 18.03e-6;
+  //mu = 0.0011206;
   su2double *FlowPrim = flowNodes->GetPrimitive(iPoint);
   su2double *Prim = (ParticleVelocity == nullptr) ? nodes->GetPrimitive(iPoint) : ParticleVelocity;
 
