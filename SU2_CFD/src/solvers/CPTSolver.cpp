@@ -47,6 +47,12 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
   /*GIUSEPPESIRIANNI*/
   
   dropletDiameter = config->GetParticle_Size();
+  dropletDensity = config->GetDropletDensity();
+  dropletDynamicViscosity = config->GetDropletViscosity();
+  dropletSurfaceTension = config->GetDropletSurfaceTension();
+
+              
+
 
 
   /* A grid is defined as dynamic if there's rigid grid movement or grid deformation AND the problem is time domain */
@@ -1233,8 +1239,10 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
 
         } else {
           solDOF[0] = 1.0;
+          solDOF[0]=FreestreamLWC; //trying to achieve faster convergence
           if(splashingPT){
-            solDOF[0] = 0.1;
+            //fake convergence for splashing freestream LWC values (LWCinf_splash<<LWCinf) if initial condition not set appropriately high
+            solDOF[0] = 1;
           }
 
           for (int iDim = 0; iDim < nDim; ++iDim) solDOF[iDim+1] = 1.0 * config->GetVelocity_FreeStream()[iDim] / FreeStreamUMag;
@@ -1698,9 +1706,9 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
 
     /*--- Splashing Particle system ---*/
     unsigned short iDim, iVar;
-    su2double mu_droplets = 18.03e-6;       //droplets fluid dynamic viscosity
-    su2double rho_droplets = 1000;           //droplets fluid density
-    su2double sigma_droplets = 0.0756;      //droplet surface tension
+    su2double mu_droplets = config->GetDropletViscosity();       //droplets fluid dynamic viscosity
+    su2double rho_droplets = config->GetDropletDensity();           //droplets fluid density
+    su2double sigma_droplets = config->GetDropletSurfaceTension();      //droplet surface tension
     su2double diameter_splashing_droplets;  //splashing droplets diameter
     su2double diameter_splashing_dropletsCOMP=0;  //splashing droplets diameter
     su2double diameter_droplets = 0;        //droplets diameter config->GetParticle_Size();
@@ -1804,18 +1812,25 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
         //Compute K (mundo splashing parameter)
         su2double K = Oh_droplets * pow(Re_droplets,1.25);
         diameter_splashing_droplets = diameter_droplets * 8.72 * exp(-0.0281 * K);
-        su2double LWC = V_domain[0] * rho_droplets;
+        su2double LWC = V_domain[0];
+
+        //cout<<"\n("<<rank<<") LWC from solution = "<<LWC<<"\t LWCinf = "<<LWC_inf;
+        //cout<<"\n("<<rank<<") U from solution = "<<U_droplets<<"\t Uinf = "<<U_inf;
+        //cout<<"\n("<<rank<<") Un = "<<U_normal_domain<<"\t Ut = "<<U_tangential_domain<<"\n";
+        //LWC = V_domain[0]*rho_droplets;
+
+
         if(LWC>LWC_threshold && U_normal_domain<0){
           //Compute for each vertex KW (LEWICE splashing parameter)
-          su2double KW = pow(K,0.859) * pow((rho_droplets / (LWC_inf * LWC)), 0.125);
+          su2double KW = pow(K,0.859) * pow((rho_droplets / (LWC)), 0.125);
 
 
           
 
-          su2double theta_deg = (180 / M_PI * theta);
+          su2double theta_deg = (180 / M_PI) * theta;
           
           su2double splashing_discriminator = 0;
-          su2double theta_threshold = 0.001;          //threshold below which we will consider theta as basically 0 (no splashing can occur, floating point errors can occur)
+          su2double theta_threshold = 0.001;          //threshold below which we will consider theta as basically 90 (no splashing can occur, floating point errors can occur)
           
           if(90 - abs(theta_deg) < theta_threshold){
             theta = 90;
@@ -1859,7 +1874,7 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
               //I think this correction is wrong
               su2double beta_correction_coeff = 1 - (LWC_splashed / LWC) * (sqrt(U_x_splashed*U_x_splashed + U_y_splashed*U_y_splashed) / (U_droplets));
               beta_correction_coeff = 1 - LWC_splashed / LWC;
-              //cout << "\n("<<rank<<") beta_correction_coeff = "<<beta_correction_coeff;
+              cout << "\n("<<rank<<") beta_correction_coeff = "<<beta_correction_coeff<<"\t theta = "<<theta_deg;
               CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] = CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] * (beta_correction_coeff) ;
             
             }
@@ -1871,9 +1886,9 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
 
           //save in splashing solver the BCs
           if(runtimeSplashing){
-            splashingSolver->SetSplashingBCs(LWC_splashed / rho_droplets, U_x_splashed, U_y_splashed, iVertex);
+            splashingSolver->SetSplashingBCs(LWC_splashed, U_x_splashed, U_y_splashed, iVertex);
             
-              cout << "\n("<<rank<<") U dot n = "<<((U_x_splashed * UnitNormal[0] + U_y_splashed* UnitNormal[1])>0);
+              //cout << "\n("<<rank<<") U dot n = "<<((U_x_splashed * UnitNormal[0] + U_y_splashed* UnitNormal[1])>0);
             //splashingSolver->SetSplashingBCs(0.1, UnitNormal[0],UnitNormal[1], iVertex);
             
           }
@@ -1913,6 +1928,7 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
 
 
   splashingSolver->SetSplashingDiameter(diameter_droplets); //Must correct this still, cant converge as is
+  splashingSolver->SetSplashingDiameter(8e-5); //Must correct this still, cant converge as is
   cout << "\n ("<<rank<<") Diameter Splashing DropletsCOMP = "<<diameter_splashing_dropletsCOMP<<"\n";
   cout << " ("<<rank<<") Diameter Splashing Droplets = "<<splashingSolver->GetSplashingDiameter()<<"\n";
 
@@ -2321,8 +2337,9 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
 
   CVariable* flowNodes = solver_container[FLOW_SOL]->GetNodes();
 
-  su2double rho = 1000;
-  const su2double sigma = 0.0756;
+  su2double rho = dropletDensity; //water density   
+  
+  const su2double sigma = dropletSurfaceTension;
   su2double d = dropletDiameter;
   if(splashingPT){
     d = GetSplashingDiameter();
@@ -2330,7 +2347,7 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
 
 
   }
-  su2double mu = 18.03e-6;
+  su2double mu = 18.03e-6; //air dynamic visscosity
   //mu = 0.0011206;
   su2double *FlowPrim = flowNodes->GetPrimitive(iPoint);
   su2double *Prim = (ParticleVelocity == nullptr) ? nodes->GetPrimitive(iPoint) : ParticleVelocity;

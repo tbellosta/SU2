@@ -1246,6 +1246,9 @@ void CConfig::SetConfig_Options() {
   addBoolOption("TRACK_PARTICLES", eulerianPT, false);
   /* GIUSEPPESIRIANNI */
   addBoolOption("SPLASH_PARTICLES", splashingPT, false);
+  addDoubleOption("DROPLET_DYNAMIC_VISCOSITY", dropletDynamicViscosity, 0.0);
+  addDoubleOption("DROPLET_SURFACE_TENSION", dropletSurfaceTension, 0.0);
+  addDoubleOption("DROPLET_DENSITY", dropletDensity, 0.0);
   /* GIUSEPPESIRIANNI */
   /*!\brief INIT_OPTION \n DESCRIPTION: Init option to choose between Reynolds or thermodynamics quantities for initializing the solution \n OPTIONS: see \link InitOption_Map \endlink \n DEFAULT REYNOLDS \ingroup Config*/
   addEnumOption("INIT_OPTION", Kind_InitOption, InitOption_Map, REYNOLDS);

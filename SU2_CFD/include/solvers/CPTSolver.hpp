@@ -54,7 +54,7 @@ class CPTSolver final : public CSolver {
   su2double FreestreamLWC, FreeStreamUMag, ReferenceLenght;
   su2double p0,t0,mu0,a0;
   bool splashingPT; //is this CPTSolver instance solving the droplets or the splashing droplets
-
+  su2double dropletDynamicViscosity, dropletSurfaceTension, dropletDensity;
 
   CPTVariable* nodes = nullptr;  /*!< \brief The highest level in the variable hierarchy this solver can safely use. */
 

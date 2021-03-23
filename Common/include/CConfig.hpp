@@ -1194,9 +1194,12 @@ private:
 
   su2double particleSize;
   bool eulerianPT;
-  /* GIUSEPPESIRIANNI */
+  
   bool splashingPT; //Are splashing droplets gonna be simulated
-  /* GIUSEPPESIRIANNI */
+  su2double dropletDynamicViscosity;
+  su2double dropletSurfaceTension;  
+  su2double dropletDensity;
+  
 
   /*!
    * \brief Set the default values of config options not set in the config file using another config object.
@@ -1603,10 +1606,17 @@ public:
   bool GetEulerianPaticleTracking(void) const { 
   return eulerianPT; 
   }
-  /* GIUSEPPESIRIANNI */
+  
   bool GetSplashingPT(void) const { 
   return splashingPT; }
-  /* GIUSEPPESIRIANNI */
+  
+  su2double GetDropletViscosity(void) const { 
+  return dropletDynamicViscosity; }
+  su2double GetDropletSurfaceTension(void) const { 
+  return dropletSurfaceTension; }
+  su2double GetDropletDensity(void) const { 
+  return dropletDensity; }
+  
 
   /*!
    * \brief Get the value of the limits for the sections.
