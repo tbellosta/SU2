@@ -1239,7 +1239,7 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
 
         } else {
           solDOF[0] = 1.0;
-          solDOF[0]=FreestreamLWC; //trying to achieve faster convergence
+          //solDOF[0]=FreestreamLWC; //trying to achieve faster convergence
           if(splashingPT){
             //fake convergence for splashing freestream LWC values (LWCinf_splash<<LWCinf) if initial condition not set appropriately high
             solDOF[0] = 1;
