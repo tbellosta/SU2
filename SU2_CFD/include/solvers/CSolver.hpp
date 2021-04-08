@@ -3171,6 +3171,10 @@ public:
   inline virtual su2double GetCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const { return 0; }
 
   inline virtual su2double GetCorrectedCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const { return 0; }
+  
+  inline virtual su2double GetCollectionEfficiencyTOT(unsigned short val_marker, unsigned long val_vertex) const { return 0; }
+
+  inline virtual su2double GetCorrectedCollectionEfficiencyTOT(unsigned short val_marker, unsigned long val_vertex) const { return 0; }
 
   /*!
    * \brief A virtual member.

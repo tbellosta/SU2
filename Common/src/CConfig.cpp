@@ -1244,12 +1244,14 @@ void CConfig::SetConfig_Options() {
   addDoubleOption("MACH_NUMBER", Mach, 0.0);
   addDoubleOption("LWC", LWC, 0.001);
   addBoolOption("TRACK_PARTICLES", eulerianPT, false);
-  /* GIUSEPPESIRIANNI */
   addBoolOption("SPLASH_PARTICLES", splashingPT, false);
+  addBoolOption("PT_MULTIBIN", multibin, false);
+  addDoubleListOption("MULTIBIN_MVD", nBins, MVD_multibin);
+  addDoubleListOption("MULTIBIN_PERCENTAGE", nBins, percentage_multibin);
+  addDoubleArrayOption("CFL_ADAPT_PARAM", 4, CFL_AdaptParam, default_cfl_adapt);
   addDoubleOption("DROPLET_DYNAMIC_VISCOSITY", dropletDynamicViscosity, 0.0);
   addDoubleOption("DROPLET_SURFACE_TENSION", dropletSurfaceTension, 0.0);
   addDoubleOption("DROPLET_DENSITY", dropletDensity, 0.0);
-  /* GIUSEPPESIRIANNI */
   /*!\brief INIT_OPTION \n DESCRIPTION: Init option to choose between Reynolds or thermodynamics quantities for initializing the solution \n OPTIONS: see \link InitOption_Map \endlink \n DEFAULT REYNOLDS \ingroup Config*/
   addEnumOption("INIT_OPTION", Kind_InitOption, InitOption_Map, REYNOLDS);
   /* DESCRIPTION: Free-stream option to choose between density and temperature for initializing the solution */
@@ -1637,6 +1639,9 @@ void CConfig::SetConfig_Options() {
    * Factor down generally <1.0, factor up generally > 1.0 to cause the CFL to increase when the under-relaxation parameter is 1.0
    * and to decrease when the under-relaxation parameter is less than 0.1. Factor is multiplicative. \ingroup Config*/
   default_cfl_adapt[0] = 1.0; default_cfl_adapt[1] = 1.0; default_cfl_adapt[2] = 10.0; default_cfl_adapt[3] = 100.0;
+  
+  
+
   addDoubleArrayOption("CFL_ADAPT_PARAM", 4, CFL_AdaptParam, default_cfl_adapt);
   /* DESCRIPTION: Reduction factor of the CFL coefficient in the adjoint problem */
   addDoubleOption("CFL_REDUCTION_ADJFLOW", CFLRedCoeff_AdjFlow, 0.8);

@@ -27,6 +27,7 @@
 
 #include "../../include/iteration/CPTIteration.hpp"
 #include "../../include/output/COutput.hpp"
+#include "../../include/solvers/CPTSolver.hpp"
 
 CPTIteration::CPTIteration(const CConfig* config, bool isSplashingIteration) : CPTIteration(config)
 {
@@ -74,7 +75,17 @@ void CPTIteration::Solve(COutput* output, CIntegration**** integration, CGeometr
 
   /*--- For steady-state flow simulations, we need to loop over ExtIter for the number of time steps ---*/
   /*--- However, ExtIter is the number of FSI iterations, so nIntIter is used in this case ---*/
-
+  
+  
+  unsigned short iBin = -1;
+  unsigned short nBins = -1;
+  if(config[ZONE_0]->GetMultiBin()){
+    unsigned short FinestMesh = config[ZONE_0]->GetFinestMesh(); 
+    CSolver** solvers_fine = solver[ZONE_0][INST_0][FinestMesh];
+    CPTSolver *PTsolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
+    iBin = PTsolver->Get_iBin();
+    nBins = config[ZONE_0]->GetNBins();
+  }
   for (Inner_Iter = 0; Inner_Iter < nInner_Iter; Inner_Iter++) {
     config[val_iZone]->SetInnerIter(Inner_Iter);
 
@@ -83,6 +94,12 @@ void CPTIteration::Solve(COutput* output, CIntegration**** integration, CGeometr
             INST_0);
 
     /*--- Monitor the pseudo-time ---*/
+
+    if(iBin>=0 && (rank == MASTER_NODE)){
+      cout << "Bin "<<iBin+1<<" / "<< nBins <<") ";
+    }
+
+
     StopCalc = Monitor(output, integration, geometry, solver, numerics, config, surface_movement, grid_movement, FFDBox,
                        val_iZone, INST_0);
 

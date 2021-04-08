@@ -55,6 +55,7 @@ class CPTSolver final : public CSolver {
   su2double p0,t0,mu0,a0;
   bool splashingPT; //is this CPTSolver instance solving the droplets or the splashing droplets
   su2double dropletDynamicViscosity, dropletSurfaceTension, dropletDensity;
+  unsigned short iBin=-1;
 
   CPTVariable* nodes = nullptr;  /*!< \brief The highest level in the variable hierarchy this solver can safely use. */
 
@@ -90,8 +91,15 @@ class CPTSolver final : public CSolver {
  public:
   su2double **CollectionEfficiencyCorrectedSplashing; //public for now
   su2double **CollectionEfficiency; //public for now
+  su2double **CollectionEfficiencyCorrectedSplashingTOT; //public for now
+  su2double **CollectionEfficiencyTOT; //public for now
   su2double GetFreestreamLWC(){return FreestreamLWC;}
+  bool multibin=false;
 
+
+  unsigned short Get_iBin(){
+    return iBin;
+  }
   /*!
    * \brief Constructor of the class.
    */
@@ -301,6 +309,8 @@ class CPTSolver final : public CSolver {
                     CConfig *config,
                     bool runtimeSplashing);
 
+  void SetBin(su2double MVD, su2double LWC, unsigned short indexBin);
+
   void BC_Euler_Wall(CGeometry *geometry,
                         CSolver **solver_container,
                         CNumerics *conv_numerics,
@@ -311,15 +321,26 @@ class CPTSolver final : public CSolver {
   inline su2double GetCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const final {
     return CollectionEfficiency[val_marker][val_vertex];
   }
+
   inline su2double GetCorrectedCollectionEfficiency(unsigned short val_marker, unsigned long val_vertex) const final {
     return CollectionEfficiencyCorrectedSplashing[val_marker][val_vertex];
   }
+
+  inline su2double GetCollectionEfficiencyTOT(unsigned short val_marker, unsigned long val_vertex) const final {
+    return CollectionEfficiencyTOT[val_marker][val_vertex];
+  }
+
+  inline su2double GetCorrectedCollectionEfficiencyTOT(unsigned short val_marker, unsigned long val_vertex) const final {
+    return CollectionEfficiencyCorrectedSplashingTOT[val_marker][val_vertex];
+  }
+
 
   void computeCollectionEfficiency(CGeometry *geometry,
                                    CSolver **solver_container,
                                    CConfig *config,
                                    unsigned short iMesh);
 
+  void AddBinCollectionEfficiency(CGeometry *geometry);
   /*!
    * \brief Compute the global error measures (L2, Linf) for verification cases.
    * \param[in] geometry - Geometrical definition.

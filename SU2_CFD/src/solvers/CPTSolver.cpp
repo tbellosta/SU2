@@ -42,9 +42,8 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
 
   int rank = MASTER_NODE;
 
-  /*GIUSEPPESIRIANNI*/
   splashingPT=isSplashingPT; //set if this CPTSolver intance is the one solving the droplets or the splashing droplets
-  /*GIUSEPPESIRIANNI*/
+ 
   
   dropletDiameter = config->GetParticle_Size();
   dropletDensity = config->GetDropletDensity();
@@ -157,17 +156,23 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
   /*--- Collection efficiency in all the markers ---*/
 
   CollectionEfficiency = new su2double* [nMarker];
+  CollectionEfficiencyTOT = new su2double* [nMarker];
   for (iMarker = 0; iMarker < nMarker; iMarker++) {
     CollectionEfficiency[iMarker] = new su2double [geometry->nVertex[iMarker]];
+    CollectionEfficiencyTOT[iMarker] = new su2double [geometry->nVertex[iMarker]];
     for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
       CollectionEfficiency[iMarker][iVertex] = 0.0;
+      CollectionEfficiencyTOT[iMarker][iVertex] = 0.0;
     }
   }
   CollectionEfficiencyCorrectedSplashing = new su2double* [nMarker];
+  CollectionEfficiencyCorrectedSplashingTOT = new su2double* [nMarker];
   for (iMarker = 0; iMarker < nMarker; iMarker++) {
     CollectionEfficiencyCorrectedSplashing[iMarker] = new su2double [geometry->nVertex[iMarker]];
+    CollectionEfficiencyCorrectedSplashingTOT[iMarker] = new su2double [geometry->nVertex[iMarker]];
     for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; iVertex++) {
       CollectionEfficiencyCorrectedSplashing[iMarker][iVertex] = 0.0;
+      CollectionEfficiencyCorrectedSplashingTOT[iMarker][iVertex] = 0.0;
     }
   }
 
@@ -1699,6 +1704,11 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
 
 }
 
+void CPTSolver::SetBin(su2double MVD, su2double LWC, unsigned short indexBin){
+    dropletDiameter = MVD;
+    FreestreamLWC = LWC;
+    iBin = indexBin;
+}
 
 
 //For now computes BCs for splashing droplets using Wright&Potacpzuk model
@@ -1714,8 +1724,10 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
     su2double diameter_droplets = 0;        //droplets diameter config->GetParticle_Size();
     su2double U_droplets;                   //droplets velocity
     su2double *vinf = config->GetVelocity_FreeStream();
+    unsigned int n_tot_splashed = 0;
     
     su2double U_inf = GeometryToolbox::Norm(nDim, vinf);
+    su2double projvelocity;
     
     unsigned long iVertex, iPoint, Point_Normal;
     unsigned short iMarker, KindBC, val_marker;
@@ -1796,6 +1808,14 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
         else{
           theta = 0.5*M_PI - acos((-V_domain[1]*UnitNormal[0]-V_domain[2]*UnitNormal[1]-V_domain[3]*UnitNormal[2]) / (sqrt(V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2] + V_domain[3]*V_domain[3])));
         }
+        
+        //projected velocity
+        projvelocity = nodes->GetProjVel(iPoint,UnitNormal);
+
+        /*--- Adjustment to v.n due to grid movement. ---*/
+        if (dynamic_grid) {
+          projvelocity -= GeometryToolbox::DotProduct(nDim, geometry->nodes->GetGridVel(iPoint), UnitNormal);
+        }
 
         su2double U_normal_domain = (V_domain[1]*UnitNormal[0] + V_domain[2]*UnitNormal[1]);
         su2double U_tangential_domain =  V_domain[1]*UnitNormal[1] - V_domain[2]*UnitNormal[0];
@@ -1820,7 +1840,7 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
         //LWC = V_domain[0]*rho_droplets;
 
 
-        if(LWC>LWC_threshold && U_normal_domain<0){
+        if(LWC>LWC_threshold && projvelocity<0){
           //Compute for each vertex KW (LEWICE splashing parameter)
           su2double KW = pow(K,0.859) * pow((rho_droplets / (LWC)), 0.125);
 
@@ -1865,6 +1885,14 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
             U_x_splashed = U_normal_splashed * Normal[0] + U_tangential_splashed * Normal[1];
             U_y_splashed = U_normal_splashed * Normal[1] - U_tangential_splashed * Normal[0];
 
+            
+            //su2double n_splashed = (Area * LWC_splashed / rho_droplets) * (3 / (4 * M_PI)) * (2 / diameter_splashing_droplets) * (2 / diameter_splashing_droplets) * (2 / diameter_splashing_droplets);
+            su2double n_splashed = (Area * LWC_splashed / rho_droplets) * (1 / M_PI) * (2 / diameter_splashing_droplets) * (2 / diameter_splashing_droplets) ;
+            //cout << "\n("<<rank<<") n_splashed = "<<n_splashed;
+
+
+            n_tot_splashed = n_tot_splashed + round(n_splashed + 0.5);
+            //cout << "\n("<<rank<<") n_splashed_int = "<<round(n_splashed + 0.5);
 
             tot_alpha += LWC_splashed;
             diameter_splashing_droplets_ALPHAAVG += (LWC_splashed)*diameter_splashing_droplets;
@@ -1873,10 +1901,16 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
               //collection efficiency correction
               //I think this correction is wrong
               su2double beta_correction_coeff = 1 - (LWC_splashed / LWC) * (sqrt(U_x_splashed*U_x_splashed + U_y_splashed*U_y_splashed) / (U_droplets));
+              
+              
               beta_correction_coeff = 1 - LWC_splashed / LWC;
-              cout << "\n("<<rank<<") beta_correction_coeff = "<<beta_correction_coeff<<"\t theta = "<<theta_deg;
-              CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] = CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] * (beta_correction_coeff) ;
-            
+              
+              CollectionEfficiencyCorrectedSplashing[val_marker][iVertex] = CollectionEfficiency[val_marker][iVertex] * (beta_correction_coeff) ;
+              
+              CollectionEfficiencyCorrectedSplashingTOT[val_marker][iVertex] += CollectionEfficiencyCorrectedSplashing[val_marker][iVertex];
+              
+              //cout << "\n("<<rank<<") beta_correction_coeff = "<<beta_correction_coeff<<"\t theta = "<<theta_deg;
+              
             }
           }
           else{
@@ -1928,9 +1962,10 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
 
 
   splashingSolver->SetSplashingDiameter(diameter_droplets); //Must correct this still, cant converge as is
-  splashingSolver->SetSplashingDiameter(8e-5); //Must correct this still, cant converge as is
-  cout << "\n ("<<rank<<") Diameter Splashing DropletsCOMP = "<<diameter_splashing_dropletsCOMP<<"\n";
-  cout << " ("<<rank<<") Diameter Splashing Droplets = "<<splashingSolver->GetSplashingDiameter()<<"\n";
+  splashingSolver->SetSplashingDiameter(2e-5); //Must correct this still, cant converge as is
+  //cout << "\n ("<<rank<<") n Droplets Splashed = "<<n_tot_splashed<<"\n";
+  //cout << "\n ("<<rank<<") Diameter Splashing DropletsCOMP = "<<diameter_splashing_dropletsCOMP<<"\n";
+  //cout << " ("<<rank<<") Diameter Splashing Droplets = "<<splashingSolver->GetSplashingDiameter()<<"\n";
 
   //InitiateComms(geometry, config, SOLUTION);
   //CompleteComms(geometry, config, SOLUTION);
@@ -2071,6 +2106,16 @@ void CPTSolver::BC_Splashing_Wall(CGeometry* geometry, CSolver** solver_containe
 
   }
 
+void CPTSolver::AddBinCollectionEfficiency(CGeometry *geometry){
+  unsigned short iMarker, iDim;
+  unsigned long iVertex, iPoint;
+  for (iMarker = 0; iMarker < nMarker; ++iMarker) {
+    for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; ++iVertex) {
+      CollectionEfficiencyTOT[iMarker][iVertex] += CollectionEfficiency[iMarker][iVertex];
+    }
+  }
+}
+
 void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
                                             CSolver **solver_container,
                                             CConfig *config,
@@ -2082,6 +2127,8 @@ void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
   su2double Normal[3], Area, NDfactor;
 
   NDfactor = 1.0;//I believe it should be freestreamLWC
+  su2double LWC_inf_tot = config->GetLiquidWaterContent();
+  //NDfactor = LWC_inf_tot / FreestreamLWC;//weigh by percentage of LWC
 
   for (iMarker = 0; iMarker < nMarker; ++iMarker) {
     for (iVertex = 0; iVertex < geometry->nVertex[iMarker]; ++iVertex) {
@@ -2097,14 +2144,18 @@ void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
 
       iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
 
+      if(iBin<1){
+        CollectionEfficiencyTOT[iMarker][iVertex] = 0.0;
+        CollectionEfficiencyCorrectedSplashingTOT[iMarker][iVertex] = 0.0;
+      }
       CollectionEfficiency[iMarker][iVertex] = 0.0;
+      CollectionEfficiencyCorrectedSplashing[iMarker][iVertex] = 0.0;
 
       for (iDim = 0; iDim < nDim; ++iDim)
-//        CollectionEfficiency[iMarker][iVertex] += nodes->GetPrimitive(iPoint, iDim + 1) * Normal[iDim];
+        //CollectionEfficiency[iMarker][iVertex] += nodes->GetPrimitive(iPoint, iDim + 1) * Normal[iDim];
         CollectionEfficiency[iMarker][iVertex] += nodes->GetSolution(iPoint, iDim + 1) * Normal[iDim];
 
-        CollectionEfficiency[iMarker][iVertex] /= NDfactor;
-        CollectionEfficiencyCorrectedSplashing[iMarker][iVertex] = CollectionEfficiency[iMarker][iVertex];
+      CollectionEfficiency[iMarker][iVertex] /= NDfactor;
 
     }
   }

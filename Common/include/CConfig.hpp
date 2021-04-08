@@ -1199,6 +1199,15 @@ private:
   su2double dropletDynamicViscosity;
   su2double dropletSurfaceTension;  
   su2double dropletDensity;
+  bool multibin=false;
+  unsigned short nBins = 10;
+  su2double* MVD_multibin;//contains list of bins in multibin PT (for now 10 fixed length)
+  su2double* percentage_multibin;//contains list of percentages in multibin PT (for now 10 fixed length)
+  su2double* default_MVD_multibin;
+  su2double* default_percentage_multibin;
+
+  //vector<su2double> MVD_bin_vector;
+  //vector<su2double> percentage_bin_vector;//contains list of percentages in multibin PT
   
 
   /*!
@@ -1609,13 +1618,21 @@ public:
   
   bool GetSplashingPT(void) const { 
   return splashingPT; }
+  bool GetMultiBin(void) const { 
+    return multibin; }
   
   su2double GetDropletViscosity(void) const { 
-  return dropletDynamicViscosity; }
+    return dropletDynamicViscosity; }
   su2double GetDropletSurfaceTension(void) const { 
-  return dropletSurfaceTension; }
+    return dropletSurfaceTension; }
   su2double GetDropletDensity(void) const { 
-  return dropletDensity; }
+    return dropletDensity; }
+  su2double* GetMVDMultibin(void) const { 
+    return MVD_multibin; }
+  su2double* GetPercentageMultibin(void) const { 
+    return percentage_multibin; }
+  unsigned short GetNBins(void) const { 
+    return nBins; }
   
 
   /*!
