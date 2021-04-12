@@ -145,17 +145,23 @@ void CPTDriver::StartSolver() {
 
     if(multibin){ //only steady multibin
 
-      int i = 0;
-      cout << "\n\t RUNNING PARTICLE TRACKING WITH MULTIBIN DATA: \n";
+      int i = 0;  
+      
+      //cout << "\n\t RUNNING PARTICLE TRACKING WITH MULTIBIN DATA: \n";
       for (i = 0;i<nBins;i++){
-        cout << "\t"<<i<<")\t" << percentage_multibin[i]<< "%   \t-    MVD = "<< MVD_multibin[i] << " micrometers\n";
+        cout << "\t"<<i<<")\t " << percentage_multibin[i]<< "%   \t-    MVD = "<< MVD_multibin[i] << " micrometers\n";
+      
       }
+
+      PTsolver->InitializeMultiBin(MVD_multibin, percentage_multibin, LWC_inf, nBins);
 
       //running simulation for each bin
       for (i = 0;i<nBins;i++){
         cout << "\n\n\tRUNNING BIN "<<i<<")\t" << percentage_multibin[i]<< "%   \t-    MVD = "<< MVD_multibin[i] << " micrometers\n\n";
         
-        PTsolver->SetBin(MVD_multibin[i], LWC_inf*percentage_multibin[i]/100, i);
+        //not sure i should simulate each bin with the same LWC_inf
+        PTsolver->SetBin(i);
+        
         Preprocess(TimeIter);
         Run();
         Postprocess();

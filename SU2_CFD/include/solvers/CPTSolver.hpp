@@ -51,11 +51,16 @@ class CPTSolver final : public CSolver {
   vector<vector<su2double>> splashingBCs;/*!< \brief vector containing BCs for splashing at wall. */
 
 
-  su2double FreestreamLWC, FreeStreamUMag, ReferenceLenght;
+  su2double FreestreamLWC, FreestreamLWC_overall, FreeStreamUMag, ReferenceLenght;
   su2double p0,t0,mu0,a0;
   bool splashingPT; //is this CPTSolver instance solving the droplets or the splashing droplets
   su2double dropletDynamicViscosity, dropletSurfaceTension, dropletDensity;
   unsigned short iBin=-1;
+  unsigned short nBin=-1;
+  su2double binPercentage;
+  su2double multibinScaling;
+  su2double* binPerc_v;
+  su2double* binMVD_v;
 
   CPTVariable* nodes = nullptr;  /*!< \brief The highest level in the variable hierarchy this solver can safely use. */
 
@@ -309,7 +314,8 @@ class CPTSolver final : public CSolver {
                     CConfig *config,
                     bool runtimeSplashing);
 
-  void SetBin(su2double MVD, su2double LWC, unsigned short indexBin);
+  void SetBin( unsigned short indexBin);
+  void InitializeMultiBin(su2double* MVD_v, su2double* perc_v, su2double LWC,unsigned short nBins);
 
   void BC_Euler_Wall(CGeometry *geometry,
                         CSolver **solver_container,

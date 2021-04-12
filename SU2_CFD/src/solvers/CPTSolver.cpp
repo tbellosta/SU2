@@ -1704,10 +1704,41 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
 
 }
 
-void CPTSolver::SetBin(su2double MVD, su2double LWC, unsigned short indexBin){
-    dropletDiameter = MVD;
-    FreestreamLWC = LWC;
-    iBin = indexBin;
+void CPTSolver::InitializeMultiBin(su2double* MVD_v, su2double* perc_v, su2double LWC, unsigned short nBins){
+  nBin = nBins;
+  binMVD_v = MVD_v;
+  binPerc_v = perc_v;
+  FreestreamLWC_overall = LWC;
+
+}
+
+
+void CPTSolver::SetBin(unsigned short indexBin){
+  dropletDiameter = binMVD_v[indexBin];
+
+  //FreestreamLWC = FreestreamLWC_overall*binPerc_v[indexBin]/100;
+  iBin = indexBin;
+  binPercentage = binPerc_v[indexBin];
+      
+  //su2double totDroplets = 0;
+  //int i = 0;
+  //for(i=0; i<nBin; i++){
+  //    totDroplets+=(FreestreamLWC_overall*binPerc_v[i]/100)/(binMVD_v[i]*binMVD_v[i]*binMVD_v[i]);
+  //}
+  //su2double nDropletsInBin = (FreestreamLWC)/(dropletDiameter*dropletDiameter*dropletDiameter);
+  //multibinScaling  = nDropletsInBin / totDroplets;
+
+
+
+  //mu0 = ReferenceLenght*FreestreamLWC*FreeStreamUMag;
+
+
+
+  multibinScaling = binPercentage/100;
+
+    
+
+  //cout<<"\n\n\n mbScaling = "<<multibinScaling*100<<"%\n\n\n";
 }
 
 
@@ -2154,11 +2185,17 @@ void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
       for (iDim = 0; iDim < nDim; ++iDim)
         //CollectionEfficiency[iMarker][iVertex] += nodes->GetPrimitive(iPoint, iDim + 1) * Normal[iDim];
         CollectionEfficiency[iMarker][iVertex] += nodes->GetSolution(iPoint, iDim + 1) * Normal[iDim];
+      //Absolutely not sure about this scaling
+      
+      CollectionEfficiency[iMarker][iVertex] *= multibinScaling;
+      
 
-      CollectionEfficiency[iMarker][iVertex] /= NDfactor;
+
+      //CollectionEfficiency[iMarker][iVertex] *= (binPercentage/100);
 
     }
   }
+
 }
 
 void CPTSolver::BC_Euler_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
@@ -2398,7 +2435,7 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
 
 
   }
-  su2double mu = 18.03e-6; //air dynamic visscosity
+  su2double mu = 18.03e-6; //air dynamic viscosity
   //mu = 0.0011206;
   su2double *FlowPrim = flowNodes->GetPrimitive(iPoint);
   su2double *Prim = (ParticleVelocity == nullptr) ? nodes->GetPrimitive(iPoint) : ParticleVelocity;
