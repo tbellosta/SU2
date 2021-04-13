@@ -1545,6 +1545,7 @@ void COutput::PreprocessVolumeOutput(CConfig *config){
 
 void COutput::LoadDataIntoSorter(CConfig* config, CGeometry* geometry, CSolver** solver){
 
+  cout<<"\n\n"<< rank <<" begin LoadDataIntoSorter \n\n";
   unsigned short iMarker = 0;
   unsigned long iPoint = 0, jPoint = 0;
   unsigned long iVertex = 0;
@@ -1582,6 +1583,7 @@ void COutput::LoadDataIntoSorter(CConfig* config, CGeometry* geometry, CSolver**
     }
 
   } else {
+    cout<<"\n\n"<< rank <<" before volume loading \n\n";
 
     for (iPoint = 0; iPoint < geometry->GetnPointDomain(); iPoint++) {
 
@@ -1598,7 +1600,7 @@ void COutput::LoadDataIntoSorter(CConfig* config, CGeometry* geometry, CSolver**
     fieldIndexCache.clear();
     curGetFieldIndex = 0;
     fieldGetIndexCache.clear();
-
+    cout<<"\n\n"<< rank <<" before surface loading \n\n";
     for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
 
       /*--- We only want to have surface values on solid walls ---*/

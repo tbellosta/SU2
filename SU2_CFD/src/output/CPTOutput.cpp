@@ -185,9 +185,11 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
 
   AddVolumeOutput("BETA", "CollEff", "SOLUTION", "Collection Efficiency");
   AddVolumeOutput("BETA_CORRECTED", "CollEff_Corrected", "SOLUTION", "Collection Efficiency Corrected for Splashing");
-
-  AddVolumeOutput("BETA_TOT", "CollEff_tot", "SOLUTION", "Total Collection Efficiency");
-  AddVolumeOutput("BETA_CORRECTED_TOT", "CollEff_Corrected_tot", "SOLUTION", " Total Collection Efficiency Corrected for Splashing");
+  
+  if(config->GetMultiBin()){
+    AddVolumeOutput("BETA_TOT", "CollEff_tot", "SOLUTION", "Total Collection Efficiency");
+    AddVolumeOutput("BETA_CORRECTED_TOT", "CollEff_Corrected_tot", "SOLUTION", " Total Collection Efficiency Corrected for Splashing");
+  }
 
   if (config->GetKind_ConvNumScheme_PT() == SPACE_CENTERED)
   AddVolumeOutput("SENSOR", "Sensor", "SOLUTION", "Sensor");
@@ -299,9 +301,9 @@ void CPTOutput::LoadSurfaceData(CConfig *config, CGeometry *geometry, CSolver **
 
       SetVolumeOutputValue("BETA_CORRECTED", iPoint, fmax(0,PTSolver->CollectionEfficiencyCorrectedSplashing[iMarker][iVertex]));
     }
-    if(config->GetMultiBin()){
+    if(config->GetMultiBin() && PTSolver->CollectionEfficiencyTOT !=nullptr){
       SetVolumeOutputValue("BETA_TOT", iPoint, fmax(0,PTSolver->CollectionEfficiencyTOT[iMarker][iVertex]));
-      if(config->GetSplashingPT() && PTSolver->CollectionEfficiencyCorrectedSplashing !=nullptr){
+      if(config->GetSplashingPT() && PTSolver->CollectionEfficiencyCorrectedSplashingTOT !=nullptr){
 
         SetVolumeOutputValue("BETA_CORRECTED_TOT", iPoint, fmax(0,PTSolver->CollectionEfficiencyCorrectedSplashingTOT[iMarker][iVertex]));
       }

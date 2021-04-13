@@ -181,6 +181,9 @@ void CPTDriver::StartSolver() {
             /*--- Compute BCs for splashing droplets (and corrects BETA) ---*/
             PTsolver->ComputeSplashingBCs(geometry_fine,splashingsolver,config_container[ZONE_0],runtimeSplashing); 
         }
+        #ifdef HAVE_MPI
+          SU2_MPI::Barrier(MPI_COMM_WORLD);
+        #endif
         Output(TimeIter);
 
         #ifdef HAVE_MPI
@@ -216,6 +219,7 @@ void CPTDriver::StartSolver() {
         SU2_MPI::Barrier(MPI_COMM_WORLD);
       #endif
 
+      //cout<<"\n\n"<< rank <<" before splash \n\n";
       if(splashing){   
         CGeometry* geometry_fine = geometry_container[ZONE_0][INST_0][FinestMesh];
         //CSolver** solvers_fine = solver_container[ZONE_0][INST_0][FinestMesh];
@@ -224,10 +228,16 @@ void CPTDriver::StartSolver() {
 
         
         /*--- Compute BCs for splashing droplets (and corrects BETA) ---*/
+        //cout<<"\n\n\t"<< rank <<" before ComputeSplashingBCs \n\n";
         PTsolver->ComputeSplashingBCs(geometry_fine,splashingsolver,config_container[ZONE_0],runtimeSplashing);
-            
+          
+        //cout<<"\n\n\t"<< rank <<" after ComputeSplashingBCs \n\n";  
       }
+      //cout<<"\n\n"<< rank <<" before driver->output() \n\n";
 
+      #ifdef HAVE_MPI
+        SU2_MPI::Barrier(MPI_COMM_WORLD);
+      #endif
       /*--- Output the solution in files. ---*/
       Output(TimeIter);
 
@@ -446,6 +456,7 @@ void CPTDriver::Output(unsigned long TimeIt) {
   /*--- Time the output for performance benchmarking. ---*/
 
   
+  cout<<"\n\n"<< rank <<" begin driver->Output() \n\n";
   StopTime = SU2_MPI::Wtime();
 
   UsedTimeCompute += StopTime-StartTime;
@@ -486,6 +497,7 @@ void CPTDriver::Output(unsigned long TimeIt) {
 
     config_container[ZONE_0]->Set_StartTime(StartTime);
   }
+
 }
 
 void CPTDriver::DynamicMeshUpdate(unsigned long TimeIter) {

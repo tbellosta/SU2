@@ -95,7 +95,7 @@ void CPTIteration::Solve(COutput* output, CIntegration**** integration, CGeometr
 
     /*--- Monitor the pseudo-time ---*/
 
-    if(iBin>=0 && (rank == MASTER_NODE)){
+    if(config[ZONE_0]->GetMultiBin() &&  iBin>=0 && (rank == MASTER_NODE)){
       cout << "Bin "<<iBin+1<<" / "<< nBins <<") ";
     }
 
