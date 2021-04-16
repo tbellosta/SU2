@@ -336,7 +336,17 @@ void CPTSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *co
     restart_filename = config->GetFilename(config->GetSolution_FileName_splashingPT(), "", val_iter);
   }
   else{
-    restart_filename = config->GetFilename(config->GetSolution_FileName_PT(), "", val_iter);    
+
+    if(iBin>0){
+      //Restart from previous bin solution in Multibin case to decrease computational time
+      restart_filename = config->GetFilename(config->GetRestart_FileName_PT(), "", val_iter);  
+      if(rank==MASTER_NODE){
+        //cout<<"\n\n\t In restart for multibin\n\n";
+      }
+    }  
+    else{
+      restart_filename = config->GetFilename(config->GetSolution_FileName_PT(), "", val_iter);  
+    }
   }
 
   Coord = new su2double [nDim];
@@ -1313,6 +1323,14 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
       
     }
   }
+
+  //Multibin restart from old bin
+  if(iBin>0){
+    solver_container[MESH_0][PT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
+    
+  }
+
+
 }
 
 void CPTSolver::SetResidual_DualTime(CGeometry *geometry, CSolver **solver_container, CConfig *config,
@@ -1704,10 +1722,11 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
 
 }
 
-void CPTSolver::InitializeMultiBin(su2double* MVD_v, su2double* perc_v, su2double LWC, unsigned short nBins){
+void CPTSolver::InitializeMultiBin(su2double* MVD_v, su2double* perc_v,  su2double* CFL_v, su2double LWC, unsigned short nBins){
   nBin = nBins;
   binMVD_v = MVD_v;
   binPerc_v = perc_v;
+  binCFL_v = CFL_v;
   FreestreamLWC_overall = LWC;
 
 }
@@ -1732,6 +1751,11 @@ void CPTSolver::SetBin(unsigned short indexBin){
 
   //mu0 = ReferenceLenght*FreestreamLWC*FreeStreamUMag;
 
+  if(binCFL_v!=nullptr){
+    for (int iPoint = 0; iPoint < nPoint; ++iPoint) {
+      nodes->SetLocalCFL(iPoint, binCFL_v[iBin]);    
+    }
+  }
 
 
   multibinScaling = binPercentage/100;
@@ -1742,10 +1766,209 @@ void CPTSolver::SetBin(unsigned short indexBin){
 }
 
 
+
+void CPTSolver::AdaptCFLNumberPT(CGeometry **geometry,
+                             CSolver   ***solver_container,
+                             CConfig   *config) {
+
+  /* Adapt the CFL number on all multigrid levels using an
+   exponential progression with under-relaxation approach. */
+
+  vector<su2double> MGFactor(config->GetnMGLevels()+1,1.0);
+  const su2double CFLFactorDecrease = config->GetCFL_AdaptParam(0);
+  const su2double CFLFactorIncrease = config->GetCFL_AdaptParam(1);
+  const su2double CFLMin            = config->GetCFL_AdaptParam(2);
+  const su2double CFLMax            = config->GetCFL_AdaptParam(3);
+  const bool fullComms              = (config->GetComm_Level() == COMM_FULL);
+
+  for (unsigned short iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
+
+    /* Store the mean flow, and turbulence solvers more clearly. */
+
+    CSolver *solverPT = solver_container[iMesh][PT_SOL];
+
+    /* Compute the reduction factor for CFLs on the coarse levels. */
+
+    if (iMesh == MESH_0) {
+      MGFactor[iMesh] = 1.0;
+    } else {
+      const su2double CFLRatio = config->GetCFL(iMesh)/config->GetCFL(iMesh-1);
+      MGFactor[iMesh] = MGFactor[iMesh-1]*CFLRatio;
+    }
+
+    /* Check whether we achieved the requested reduction in the linear
+     solver residual within the specified number of linear iterations. */
+
+    bool reduceCFL = false;
+    su2double linResPT = solverPT->GetResLinSolver();
+    
+
+    su2double maxLinResid = linResPT;
+    if (maxLinResid > 0.5) {
+      reduceCFL = true;
+    }
+
+    /* Check that we are meeting our nonlinear residual reduction target
+     over time so that we do not get stuck in limit cycles. */
+
+    SU2_OMP_MASTER
+    { /* Only the master thread updates the shared variables. */
+
+    Old_Func = New_Func;
+    unsigned short Res_Count = 100;
+    if (NonLinRes_Series.size() == 0) NonLinRes_Series.resize(Res_Count,0.0);
+
+    /* Sum the RMS residuals for all equations. */
+
+    New_Func = 0.0;
+    for (unsigned short iVar = 0; iVar < solverPT->GetnVar(); iVar++) {
+      New_Func += solverPT->GetRes_RMS(iVar);
+    }
+    
+
+    /* Compute the difference in the nonlinear residuals between the
+     current and previous iterations. */
+
+    NonLinRes_Func = (New_Func - Old_Func);
+    NonLinRes_Series[NonLinRes_Counter] = NonLinRes_Func;
+
+    /* Increment the counter, if we hit the max size, then start over. */
+
+    NonLinRes_Counter++;
+    if (NonLinRes_Counter == Res_Count) NonLinRes_Counter = 0;
+
+    /* Sum the total change in nonlinear residuals over the previous
+     set of all stored iterations. */
+
+    NonLinRes_Value = New_Func;
+    if (config->GetTimeIter() >= Res_Count) {
+      NonLinRes_Value = 0.0;
+      for (unsigned short iCounter = 0; iCounter < Res_Count; iCounter++)
+        NonLinRes_Value += NonLinRes_Series[iCounter];
+    }
+
+    /* If the sum is larger than a small fraction of the current nonlinear
+     residual, then we are not decreasing the nonlinear residual at a high
+     rate. In this situation, we force a reduction of the CFL in all cells.
+     Reset the array so that we delay the next decrease for some iterations. */
+
+    if (fabs(NonLinRes_Value) < 0.1*New_Func) {
+      NonLinRes_Counter = 0;
+      for (unsigned short iCounter = 0; iCounter < Res_Count; iCounter++)
+        NonLinRes_Series[iCounter] = New_Func;
+    }
+
+    } /* End SU2_OMP_MASTER, now all threads update the CFL number. */
+    SU2_OMP_BARRIER
+
+    if (fabs(NonLinRes_Value) < 0.1*New_Func) {
+      reduceCFL = true;
+    }
+
+    /* Loop over all points on this grid and apply CFL adaption. */
+
+    su2double myCFLMin = 1e30, myCFLMax = 0.0, myCFLSum = 0.0;
+
+    SU2_OMP_MASTER
+    if ((iMesh == MESH_0) && fullComms) {
+      Min_CFL_Local = 1e30;
+      Max_CFL_Local = 0.0;
+      Avg_CFL_Local = 0.0;
+    }
+
+    SU2_OMP_FOR_STAT(roundUpDiv(geometry[iMesh]->GetnPointDomain(),omp_get_max_threads()))
+    for (unsigned long iPoint = 0; iPoint < geometry[iMesh]->GetnPointDomain(); iPoint++) {
+
+      /* Get the current local flow CFL number at this point. */
+
+      su2double CFL = solverPT->GetNodes()->GetLocalCFL(iPoint);
+
+      /* Get the current under-relaxation parameters that were computed
+       during the previous nonlinear update. If we have a turbulence model,
+       take the minimum under-relaxation parameter between the mean flow
+       and turbulence systems. */
+
+      su2double underRelaxationPT = solverPT->GetNodes()->GetUnderRelaxation(iPoint);
+      const su2double underRelaxation = underRelaxationPT;
+
+      /* If we apply a small under-relaxation parameter for stability,
+       then we should reduce the CFL before the next iteration. If we
+       are able to add the entire nonlinear update (under-relaxation = 1)
+       then we schedule an increase the CFL number for the next iteration. */
+
+      su2double CFLFactor = 1.0;
+      if ((underRelaxation < 0.1)) {
+        CFLFactor = CFLFactorDecrease;
+      } else if (underRelaxation >= 0.1 && underRelaxation < 1.0) {
+        CFLFactor = 1.0;
+      } else {
+        CFLFactor = CFLFactorIncrease;
+      }
+
+      /* Check if we are hitting the min or max and adjust. */
+
+      if (CFL*CFLFactor <= CFLMin) {
+        CFL       = CFLMin;
+        CFLFactor = MGFactor[iMesh];
+      } else if (CFL*CFLFactor >= CFLMax) {
+        CFL       = CFLMax;
+        CFLFactor = MGFactor[iMesh];
+      }
+
+      /* If we detect a stalled nonlinear residual, then force the CFL
+       for all points to the minimum temporarily to restart the ramp. */
+
+      if (reduceCFL) {
+        CFL       = CFLMin;
+        CFLFactor = MGFactor[iMesh];
+      }
+
+      /* Apply the adjustment to the CFL and store local values. */
+
+      CFL *= CFLFactor;
+      solverPT->GetNodes()->SetLocalCFL(iPoint, CFL);
+      
+
+      /* Store min and max CFL for reporting on the fine grid. */
+
+      if ((iMesh == MESH_0) && fullComms) {
+        myCFLMin = min(CFL,myCFLMin);
+        myCFLMax = max(CFL,myCFLMax);
+        myCFLSum += CFL;
+      }
+
+    }
+
+    /* Reduce the min/max/avg local CFL numbers. */
+
+    if ((iMesh == MESH_0) && fullComms) {
+      SU2_OMP_CRITICAL
+      { /* OpenMP reduction. */
+        Min_CFL_Local = min(Min_CFL_Local,myCFLMin);
+        Max_CFL_Local = max(Max_CFL_Local,myCFLMax);
+        Avg_CFL_Local += myCFLSum;
+      }
+      SU2_OMP_BARRIER
+
+      SU2_OMP_MASTER
+      { /* MPI reduction. */
+        myCFLMin = Min_CFL_Local; myCFLMax = Max_CFL_Local; myCFLSum = Avg_CFL_Local;
+        SU2_MPI::Allreduce(&myCFLMin, &Min_CFL_Local, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
+        SU2_MPI::Allreduce(&myCFLMax, &Max_CFL_Local, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+        SU2_MPI::Allreduce(&myCFLSum, &Avg_CFL_Local, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+        Avg_CFL_Local /= su2double(geometry[iMesh]->GetGlobal_nPointDomain());
+      }
+      SU2_OMP_BARRIER
+    }
+
+  }
+
+}
+
+
 //For now computes BCs for splashing droplets using Wright&Potacpzuk model
 void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSolver, CConfig *config, bool runtimeSplashing) {
 
-    cout<<"\n\n"<< rank <<" inside ComputeSplashingBCS \n\n";
     /*--- Splashing Particle system ---*/
     unsigned short iDim, iVar;
     su2double mu_droplets = config->GetDropletViscosity();       //droplets fluid dynamic viscosity
@@ -1793,7 +2016,6 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
     su2double LWC_inf = GetFreestreamLWC();                   //droplets freestream LWC
     
     
-    cout<<"\n\n"<< rank <<" before search wall \n\n";
   
     //searching for euler wall marker (FOR NOW ONLY ONE EULER WALL ALLOWED (?))
     for (iMarker = 0; iMarker < config->GetnMarker_All(); iMarker++) {
@@ -1923,11 +2145,9 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
               diameter_splashing_droplets = 1.0 * diameter_droplets;
           }
 
-          cout<<"\n\n"<< rank <<" before if(splashing_discriminator > 0) \n\n";
           //Verify if threshold is surpassed and therefore splashing occurs
           if(splashing_discriminator > 0){
 
-            cout<<"\n\n"<< rank <<" inside if(splashing_discriminator > 0) \n\n";
             //splashing occurs
             su2double U_normal_splashed = abs(U_normal_domain) * (0.3 - 0.002 * theta_deg);
             LWC_splashed = LWC * 0.7 * (1 - sin(theta)) * (1 - exp(-0.0092026 * splashing_discriminator));
@@ -2836,7 +3056,9 @@ void CPTSolver::BoundaryPrimitive(const su2double* V_dom, const su2double* V_bou
 
 su2double CPTSolver::ComputeRelaxationConstant(const su2double* Prim_i, const su2double* Prim_j,
                                                const su2double* UnitNormal) {
-
+  //defaults
+  //const su2double eps = 1;
+  //const su2double C = 1e6;
   const su2double eps = 1;
   const su2double C = 1e6;
 

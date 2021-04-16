@@ -61,6 +61,7 @@ class CPTSolver final : public CSolver {
   su2double multibinScaling;
   su2double* binPerc_v;
   su2double* binMVD_v;
+  su2double* binCFL_v;
 
   CPTVariable* nodes = nullptr;  /*!< \brief The highest level in the variable hierarchy this solver can safely use. */
 
@@ -315,7 +316,10 @@ class CPTSolver final : public CSolver {
                     bool runtimeSplashing);
 
   void SetBin( unsigned short indexBin);
-  void InitializeMultiBin(su2double* MVD_v, su2double* perc_v, su2double LWC,unsigned short nBins);
+  void AdaptCFLNumberPT(CGeometry **geometry,
+                             CSolver   ***solver_container,
+                             CConfig   *config);
+  void InitializeMultiBin(su2double* MVD_v, su2double* perc_v, su2double* CFL_v, su2double LWC,unsigned short nBins);
 
   void BC_Euler_Wall(CGeometry *geometry,
                         CSolver **solver_container,

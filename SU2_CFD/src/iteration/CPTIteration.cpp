@@ -54,7 +54,15 @@ void CPTIteration::Iterate(COutput* output, CIntegration**** integration, CGeome
 
     integration[val_iZone][val_iInst][PT_SOL]->SingleGrid_Iteration(geometry, solver, numerics, config,
                                                                     RUNTIME_PT_SYS, val_iZone, val_iInst);
+    
+    /*--- Adapt the CFL number using an exponential progression with under-relaxation approach. ---*/
 
+    if (config[val_iZone]->GetCFL_PT_Adapt() == YES) {
+      SU2_OMP_PARALLEL
+      
+      CPTSolver *PTSolver = dynamic_cast<CPTSolver*>(solver[val_iZone][val_iInst][MESH_0][PT_SOL]);
+      PTSolver->AdaptCFLNumberPT(geometry[val_iZone][val_iInst], solver[val_iZone][val_iInst], config[val_iZone]);
+    }
   }
 }
 

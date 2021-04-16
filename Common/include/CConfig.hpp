@@ -1200,11 +1200,13 @@ private:
   su2double dropletSurfaceTension;  
   su2double dropletDensity;
   bool multibin=false;
-  unsigned short nBins = 10;
-  su2double* MVD_multibin;//contains list of bins in multibin PT (for now 10 fixed length)
-  su2double* percentage_multibin;//contains list of percentages in multibin PT (for now 10 fixed length)
-  su2double* default_MVD_multibin;
-  su2double* default_percentage_multibin;
+  unsigned short nBins;
+  unsigned short nBinsCFL;
+  su2double* MVD_multibin;//contains list of bins in multibin PT
+  su2double* percentage_multibin;//contains list of percentages in multibin PT
+  su2double* CFL_multibin=nullptr;//contains list of CFL for each bin in multibin PT
+  bool adaptCFL_PT;
+  
 
   //vector<su2double> MVD_bin_vector;
   //vector<su2double> percentage_bin_vector;//contains list of percentages in multibin PT
@@ -1629,6 +1631,11 @@ public:
     return dropletDensity; }
   su2double* GetMVDMultibin(void) const { 
     return MVD_multibin; }
+  su2double* GetCFLMultibin(void) const { 
+    return CFL_multibin; }
+  bool GetCFL_PT_Adapt(){
+    return adaptCFL_PT;
+  }
   su2double* GetPercentageMultibin(void) const { 
     return percentage_multibin; }
   unsigned short GetNBins(void) const { 

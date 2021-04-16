@@ -1248,6 +1248,7 @@ void CConfig::SetConfig_Options() {
   addBoolOption("PT_MULTIBIN", multibin, false);
   addDoubleListOption("MULTIBIN_MVD", nBins, MVD_multibin);
   addDoubleListOption("MULTIBIN_PERCENTAGE", nBins, percentage_multibin);
+  addDoubleListOption("MULTIBIN_CFL", nBinsCFL, CFL_multibin);
   addDoubleArrayOption("CFL_ADAPT_PARAM", 4, CFL_AdaptParam, default_cfl_adapt);
   addDoubleOption("DROPLET_DYNAMIC_VISCOSITY", dropletDynamicViscosity, 0.0);
   addDoubleOption("DROPLET_SURFACE_TENSION", dropletSurfaceTension, 0.0);
@@ -1634,6 +1635,7 @@ void CConfig::SetConfig_Options() {
   addDoubleOption("MAX_DELTA_TIME", Max_DeltaTime, 1000000);
   /* DESCRIPTION: Activate The adaptive CFL number. */
   addBoolOption("CFL_ADAPT", CFL_Adapt, false);
+  addBoolOption("CFL_PT_ADAPT", adaptCFL_PT, false);
   /* !\brief CFL_ADAPT_PARAM
    * DESCRIPTION: Parameters of the adaptive CFL number (factor down, factor up, CFL limit (min and max) )
    * Factor down generally <1.0, factor up generally > 1.0 to cause the CFL to increase when the under-relaxation parameter is 1.0
