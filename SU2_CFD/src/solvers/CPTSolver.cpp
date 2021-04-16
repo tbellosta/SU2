@@ -31,7 +31,7 @@ CPTSolver::CPTSolver(void) : CSolver() {
 }
 
 
-CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh, bool isSplashingPT) : CSolver() {
+CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh) : CSolver() {
 
 
 
@@ -42,8 +42,6 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
 
   int rank = MASTER_NODE;
 
-  splashingPT=isSplashingPT; //set if this CPTSolver intance is the one solving the droplets or the splashing droplets
- 
   
   dropletDiameter = config->GetParticle_Size();
   dropletDensity = config->GetDropletDensity();
@@ -195,9 +193,7 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
 
   FreestreamLWC = 1.0;
   realFreestreamLWC = config->GetLiquidWaterContent();
-  if(splashingPT){
-    FreestreamLWC = FreestreamLWC/10000;
-  }
+  
   FreeStreamUMag = GeometryToolbox::Norm(nDim, config->GetVelocity_FreeStream());
   ReferenceLenght = 1.0;
 
@@ -216,9 +212,7 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
 
   /*--- Initialize the nodes vector. ---*/
   su2double LWC = 1.0;
-  if(splashingPT){
-    LWC = LWC/10000;
-  }
+  
   nodes = new CPTVariable(LWC, VV, nPoint, nDim, nVar, config);
 
   SetBaseClassPointerToNodes();
@@ -333,21 +327,17 @@ void CPTSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *co
   su2double Area_Children, Area_Parent, *Coord, *Solution_Fine;
 
   string restart_filename;
-  if(splashingPT){
-    restart_filename = config->GetFilename(config->GetSolution_FileName_splashingPT(), "", val_iter);
-  }
-  else{
+  
+  
 
-    if(iBin>0.5){
-      //Restart from previous bin solution in Multibin case to decrease computational time
-      restart_filename = config->GetFilename(config->GetRestart_FileName_PT(), "", val_iter);  
-      if(rank==MASTER_NODE){
-      }
-    }  
-    else{
-      restart_filename = config->GetFilename(config->GetSolution_FileName_PT(), "", val_iter);  
-    }
+  if(iBin>0.5){
+    //Restart from previous bin solution in Multibin case to decrease computational time
+    restart_filename = config->GetFilename(config->GetRestart_FileName_PT(), "", val_iter);  
+  }  
+  else{
+    restart_filename = config->GetFilename(config->GetSolution_FileName_PT(), "", val_iter);  
   }
+  
 
   Coord = new su2double [nDim];
   for (iDim = 0; iDim < nDim; iDim++)
@@ -433,62 +423,34 @@ void CPTSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *co
    on the fine level in order to have all necessary quantities updated,
    especially if this is a turbulent simulation (eddy viscosity). ---*/
 
-  if(splashingPT){
-    solver[MESH_0][SPLASHINGPT_SOL]->InitiateComms(geometry[MESH_0], config, SOLUTION);
-    solver[MESH_0][SPLASHINGPT_SOL]->CompleteComms(geometry[MESH_0], config, SOLUTION);
+  
+  solver[MESH_0][PT_SOL]->InitiateComms(geometry[MESH_0], config, SOLUTION);
+  solver[MESH_0][PT_SOL]->CompleteComms(geometry[MESH_0], config, SOLUTION);
 
-    solver[MESH_0][SPLASHINGPT_SOL]->Preprocessing(geometry[MESH_0], solver[MESH_0], config, MESH_0, NO_RK_ITER, RUNTIME_SPLASHINGPT_SYS, false);
-
-    /*--- Interpolate the solution down to the coarse multigrid levels ---*/
-
-    for (iMesh = 1; iMesh <= config->GetnMGLevels(); iMesh++) {
-      for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); iPoint++) {
-        Area_Parent = geometry[iMesh]->nodes->GetVolume(iPoint);
-        for (iVar = 0; iVar < nVar; iVar++) Solution[iVar] = 0.0;
-        for (iChildren = 0; iChildren < geometry[iMesh]->nodes->GetnChildren_CV(iPoint); iChildren++) {
-          Point_Fine = geometry[iMesh]->nodes->GetChildren_CV(iPoint, iChildren);
-          Area_Children = geometry[iMesh-1]->nodes->GetVolume(Point_Fine);
-          Solution_Fine = solver[iMesh-1][SPLASHINGPT_SOL]->GetNodes()->GetSolution(Point_Fine);
-          for (iVar = 0; iVar < nVar; iVar++) {
-            Solution[iVar] += Solution_Fine[iVar]*Area_Children/Area_Parent;
-          }
-        }
-        solver[iMesh][SPLASHINGPT_SOL]->GetNodes()->SetSolution(iPoint,Solution);
-      }
-      solver[iMesh][SPLASHINGPT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
-      solver[iMesh][SPLASHINGPT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
-      solver[iMesh][SPLASHINGPT_SOL]->Preprocessing(geometry[iMesh], solver[iMesh], config, iMesh, NO_RK_ITER, RUNTIME_SPLASHINGPT_SYS, false);
-    }
-    
-  }
-  else{  
-    solver[MESH_0][PT_SOL]->InitiateComms(geometry[MESH_0], config, SOLUTION);
-    solver[MESH_0][PT_SOL]->CompleteComms(geometry[MESH_0], config, SOLUTION);
-
-    solver[MESH_0][PT_SOL]->Preprocessing(geometry[MESH_0], solver[MESH_0], config, MESH_0, NO_RK_ITER, RUNTIME_PT_SYS, false);
+  solver[MESH_0][PT_SOL]->Preprocessing(geometry[MESH_0], solver[MESH_0], config, MESH_0, NO_RK_ITER, RUNTIME_PT_SYS, false);
 
     /*--- Interpolate the solution down to the coarse multigrid levels ---*/
 
-    for (iMesh = 1; iMesh <= config->GetnMGLevels(); iMesh++) {
-      for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); iPoint++) {
-        Area_Parent = geometry[iMesh]->nodes->GetVolume(iPoint);
-        for (iVar = 0; iVar < nVar; iVar++) Solution[iVar] = 0.0;
-        for (iChildren = 0; iChildren < geometry[iMesh]->nodes->GetnChildren_CV(iPoint); iChildren++) {
-          Point_Fine = geometry[iMesh]->nodes->GetChildren_CV(iPoint, iChildren);
-          Area_Children = geometry[iMesh-1]->nodes->GetVolume(Point_Fine);
-          Solution_Fine = solver[iMesh-1][PT_SOL]->GetNodes()->GetSolution(Point_Fine);
-          for (iVar = 0; iVar < nVar; iVar++) {
-            Solution[iVar] += Solution_Fine[iVar]*Area_Children/Area_Parent;
-          }
+  for (iMesh = 1; iMesh <= config->GetnMGLevels(); iMesh++) {
+    for (iPoint = 0; iPoint < geometry[iMesh]->GetnPoint(); iPoint++) {
+      Area_Parent = geometry[iMesh]->nodes->GetVolume(iPoint);
+      for (iVar = 0; iVar < nVar; iVar++) Solution[iVar] = 0.0;
+      for (iChildren = 0; iChildren < geometry[iMesh]->nodes->GetnChildren_CV(iPoint); iChildren++) {
+        Point_Fine = geometry[iMesh]->nodes->GetChildren_CV(iPoint, iChildren);
+        Area_Children = geometry[iMesh-1]->nodes->GetVolume(Point_Fine);
+        Solution_Fine = solver[iMesh-1][PT_SOL]->GetNodes()->GetSolution(Point_Fine);
+        for (iVar = 0; iVar < nVar; iVar++) {
+          Solution[iVar] += Solution_Fine[iVar]*Area_Children/Area_Parent;
         }
-        solver[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint,Solution);
       }
-      solver[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
-      solver[iMesh][PT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
-      solver[iMesh][PT_SOL]->Preprocessing(geometry[iMesh], solver[iMesh], config, iMesh, NO_RK_ITER, RUNTIME_PT_SYS, false);
+      solver[iMesh][PT_SOL]->GetNodes()->SetSolution(iPoint,Solution);
     }
-
+    solver[iMesh][PT_SOL]->InitiateComms(geometry[iMesh], config, SOLUTION);
+    solver[iMesh][PT_SOL]->CompleteComms(geometry[iMesh], config, SOLUTION);
+    solver[iMesh][PT_SOL]->Preprocessing(geometry[iMesh], solver[iMesh], config, iMesh, NO_RK_ITER, RUNTIME_PT_SYS, false);
   }
+
+  
 
   delete [] Coord;
 
@@ -1219,12 +1181,8 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
   su2double Area_Children, Area_Parent, *Solution_Fine, *Solution;
   bool restart=false;
 
-  if(splashingPT){
-    restart   = (config->GetRestart() && config->GetRestart_splashingPT());
-  }
-  else{
-    restart   = (config->GetRestart() && config->GetRestart_PT());
-  }
+  restart   = (config->GetRestart() && config->GetRestart_PT());
+  
   bool dual_time = ((config->GetTime_Marching() == DT_STEPPING_1ST) ||
                     (config->GetTime_Marching() == DT_STEPPING_2ND));
 
@@ -1254,11 +1212,7 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
 
         } else {
           solDOF[0] = 1.0;
-          //solDOF[0]=FreestreamLWC; //trying to achieve faster convergence
-          if(splashingPT){
-            //fake convergence for splashing freestream LWC values (LWCinf_splash<<LWCinf) if initial condition not set appropriately high
-            solDOF[0] = 1;
-          }
+          
 
           for (int iDim = 0; iDim < nDim; ++iDim) solDOF[iDim+1] = 1.0 * config->GetVelocity_FreeStream()[iDim] / FreeStreamUMag;
           
@@ -1282,44 +1236,27 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
 
     /*--- Push back the initial condition to previous solution containers
      for a 1st-order restart or when simply intitializing to freestream. ---*/
-    if(splashingPT)
-    {
-        for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
+    
+    for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
         
-        solver_container[iMesh][SPLASHINGPT_SOL]->GetNodes()->Set_Solution_time_n();
-        solver_container[iMesh][SPLASHINGPT_SOL]->GetNodes()->Set_Solution_time_n1();
-      }
+      solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n();
+      solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n1();
     }
-    else{
-      for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
-        
-        solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n();
-        solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n1();
-      }
 
-    }
+    
 
     if ((restart && (long)TimeIter == (long)config->GetRestart_Iter()) &&
         (config->GetTime_Marching() == DT_STEPPING_2ND)) {
 
       /*--- Load an additional restart file for a 2nd-order restart ---*/
-      if(splashingPT){
-        solver_container[MESH_0][SPLASHINGPT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
-
+      
+      solver_container[MESH_0][PT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
         /*--- Push back this new solution to time level N. ---*/
     
-        for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
-          solver_container[iMesh][SPLASHINGPT_SOL]->GetNodes()->Set_Solution_time_n();
-        }
-     }
-      else{
-        solver_container[MESH_0][PT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
-          /*--- Push back this new solution to time level N. ---*/
-    
-        for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
-          solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n();
-        }
+      for (iMesh = 0; iMesh <= config->GetnMGLevels(); iMesh++) {
+        solver_container[iMesh][PT_SOL]->GetNodes()->Set_Solution_time_n();
       }
+      
       
     }
   }
@@ -1968,7 +1905,7 @@ void CPTSolver::AdaptCFLNumberPT(CGeometry **geometry,
 
 
 //For now computes BCs for splashing droplets using Wright&Potacpzuk model
-void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSolver, CConfig *config, bool runtimeSplashing) {
+void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CConfig *config, bool runtimeSplashing) {
 
     /*--- Splashing Particle system ---*/
     unsigned short iDim, iVar;
@@ -2192,7 +2129,6 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
 
           //save in splashing solver the BCs
           if(runtimeSplashing){
-            splashingSolver->SetSplashingBCs(LWC_splashed, U_x_splashed, U_y_splashed, iVertex);
             
               //cout << "\n("<<rank<<") U dot n = "<<((U_x_splashed * UnitNormal[0] + U_y_splashed* UnitNormal[1])>0);
             //splashingSolver->SetSplashingBCs(0.1, UnitNormal[0],UnitNormal[1], iVertex);
@@ -2203,7 +2139,6 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
         }
         else{//no splashing, LWC too low or U_normal<0
           if(runtimeSplashing){
-            splashingSolver->SetSplashingBCs(-1, 0, 0, iVertex);
             
             //splashingSolver->SetSplashingBCs(0.1, UnitNormal[0],UnitNormal[1], iVertex);
             
@@ -2220,7 +2155,6 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
         //splashingSolver->SetSplashingDiameter(diameter_splashing_droplets_ALPHAAVG / tot_alpha); 
         //cout << "\n ("<<rank<<") totalpha = "<<tot_alpha;
         diameter_splashing_dropletsCOMP = diameter_splashing_droplets_ALPHAAVG / tot_alpha;
-        splashingSolver->SetSplashingDiameter(diameter_droplets); 
         
 
 
@@ -2450,15 +2384,9 @@ void CPTSolver::BC_Euler_Wall(CGeometry* geometry, CSolver** solver_container, C
   
   
     
-  if(splashingPT)
-  {
-    //if this is splashing case, the BC at the wall is inlet of droplets where splashing occurs and non slip everywhere else
-    BC_Splashing_Wall(geometry,solver_container,conv_numerics,visc_numerics,config,val_marker);
-  }
-  else
-  {
-    BC_HeatFlux_Wall(geometry,solver_container,conv_numerics,visc_numerics,config,val_marker);
-  }
+  
+  BC_HeatFlux_Wall(geometry,solver_container,conv_numerics,visc_numerics,config,val_marker);
+  
 
 
 
@@ -2676,9 +2604,7 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
   
   const su2double sigma = dropletSurfaceTension;
   su2double d = dropletDiameter;
-  if(splashingPT){
-    d = GetSplashingDiameter();
-  }
+  
   su2double mu = 18.03e-6; //air dynamic viscosity
   //mu = 0.0011206;
   su2double *FlowPrim = flowNodes->GetPrimitive(iPoint);

@@ -84,10 +84,8 @@ protected:
        fem_solver;                              /*!< \brief FEM fluid solver simulation flag. */
   CIteration ***iteration_container;            /*!< \brief Container vector with all the iteration methods. */
   CIteration ***iteration_container_PT;         /*!< \brief Container vector with all the iteration methods PT. */
-  CIteration ***iteration_container_splashingPT;/*!< \brief Container vector with all the iteration methods splashing PT. */
   COutput **output_container;                   /*!< \brief Pointer to the COutput class. */
   COutput **output_container_PT;                /*!< \brief Pointer to the COutput class PT. */
-  COutput **output_container_splashingPT;       /*!< \brief Pointer to the COutput class PT. */
   CIntegration ****integration_container;       /*!< \brief Container vector with all the integration methods. */
   CGeometry ****geometry_container;             /*!< \brief Geometrical definition of the problem. */
   CSolver *****solver_container;                /*!< \brief Container vector with all the solutions. */
@@ -162,9 +160,8 @@ protected:
    * \param[in] config - Definition of the particular problem.
    * \param[in] iteration_container - Pointer to the iteration container to be instantiated.
    * \param[in] iteration_PT - Pointer to the iteration container to be instantiated (PT).
-   * \param[in] iteration_splashingPT - Pointer to the iteration container to be instantiated (Splashing PT).
    */
-  void Iteration_Preprocessing(CConfig* config, CIteration*& iteration, CIteration*& iteration_PT, CIteration*& iteration_splashingPT) const; //added splashing iteration container
+  void Iteration_Preprocessing(CConfig* config, CIteration*& iteration, CIteration*& iteration_PT) const;
 
   /*!
    * \brief Definition and allocation of all solution classes.
@@ -252,7 +249,7 @@ protected:
    * \brief Preprocess the output container.
    */
   void Output_Preprocessing(CConfig** config, CConfig* driver_config, COutput**& output, COutput*& driver_output,
-                            COutput**& outputPT, COutput**& outputsplashingPT); //added splashing output
+                            COutput**& outputPT);
 
   /*!
    * \brief Initiate value for static mesh movement such as the gridVel for the ROTATING frame.

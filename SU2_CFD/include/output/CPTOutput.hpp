@@ -43,12 +43,6 @@ class CPTOutput final: public COutput {
    * \param[in] config - Definition of the particular problem.
    */
   CPTOutput(CConfig *config, unsigned short nDim);
-  /*!
-   * \brief Constructor of the class
-   * \param[in] config - Definition of the particular problem.
-   * \param[in] config - Is this the splashing output instance.
-   */
-  CPTOutput(CConfig *config, unsigned short nDim, bool isSplashing);
 
   /*!
    * \brief Destructor of the class.

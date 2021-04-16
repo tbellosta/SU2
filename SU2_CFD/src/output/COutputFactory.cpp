@@ -78,10 +78,7 @@ COutput* COutputFactory::CreateOutput(ENUM_MAIN_SOLVER kindSolver, CConfig* conf
       output = new CFlowCompFEMOutput(config, nDim);
       break;
     case PARTICLE_TRACKING:
-      output = new CPTOutput(config, nDim, false);
-      break;
-    case SPLASHING_PARTICLE_TRACKING:
-      output = new CPTOutput(config, nDim, true);
+      output = new CPTOutput(config, nDim);
       break;
     default:
       output = new COutput(config, nDim, false);

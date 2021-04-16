@@ -193,9 +193,7 @@ CSolver** CSolverFactory::CreateSolverContainer(ENUM_MAIN_SOLVER kindMainSolver,
   solver[ADJMESH_SOL] = CreateSubSolver(SUB_SOLVER_TYPE::DISC_ADJ_MESH, solver, geometry, config, iMGLevel);
   if(config->GetEulerianPaticleTracking()){
     solver[PT_SOL] = CreateSubSolver(SUB_SOLVER_TYPE::PT, solver, geometry, config, iMGLevel);
-    if(config->GetSplashingPT()){
-      solver[SPLASHINGPT_SOL] = CreateSubSolver(SUB_SOLVER_TYPE::SPLASHINGPT, solver, geometry, config, iMGLevel);
-    }
+    
   }
   return solver;
 
@@ -294,12 +292,8 @@ CSolver* CSolverFactory::CreateSubSolver(SUB_SOLVER_TYPE kindSolver, CSolver **s
       break;
     case SUB_SOLVER_TYPE::PT:
       if (config->GetEulerianPaticleTracking()) {
-        genericSolver = new CPTSolver(geometry, config, iMGLevel, false);
+        genericSolver = new CPTSolver(geometry, config, iMGLevel);
       }
-      metaData.integrationType = INTEGRATION_TYPE::SINGLEGRID;
-      break;
-    case SUB_SOLVER_TYPE::SPLASHINGPT:
-      genericSolver = new CPTSolver(geometry, config, iMGLevel, true);
       metaData.integrationType = INTEGRATION_TYPE::SINGLEGRID;
       break;
     case SUB_SOLVER_TYPE::DISC_ADJ_HEAT:

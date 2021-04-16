@@ -177,14 +177,11 @@ void CPTDriver::StartSolver() {
         #endif
         if(splashing){   
             CGeometry* geometry_fine = geometry_container[ZONE_0][INST_0][FinestMesh];
-            //CSolver** solvers_fine = solver_container[ZONE_0][INST_0][FinestMesh];
-            CPTSolver *splashingsolver = dynamic_cast<CPTSolver*>(solvers_fine[SPLASHINGPT_SOL]);
-            //CPTSolver *PTsolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
 
             /*--- Sum this bin's collection efficiency ---*/
             PTsolver->AddBinCollectionEfficiency(geometry_fine);
             /*--- Compute BCs for splashing droplets (and corrects BETA) ---*/
-            PTsolver->ComputeSplashingBCs(geometry_fine,splashingsolver,config_container[ZONE_0],runtimeSplashing); 
+            PTsolver->ComputeSplashingBCs(geometry_fine,config_container[ZONE_0],runtimeSplashing); 
         }
         #ifdef HAVE_MPI
           SU2_MPI::Barrier(MPI_COMM_WORLD);
@@ -227,14 +224,10 @@ void CPTDriver::StartSolver() {
       //cout<<"\n\n"<< rank <<" before splash \n\n";
       if(splashing){   
         CGeometry* geometry_fine = geometry_container[ZONE_0][INST_0][FinestMesh];
-        //CSolver** solvers_fine = solver_container[ZONE_0][INST_0][FinestMesh];
-        CPTSolver *splashingsolver = dynamic_cast<CPTSolver*>(solvers_fine[SPLASHINGPT_SOL]);
-        //CPTSolver *PTsolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
-
         
         /*--- Compute BCs for splashing droplets (and corrects BETA) ---*/
         //cout<<"\n\n\t"<< rank <<" before ComputeSplashingBCs \n\n";
-        PTsolver->ComputeSplashingBCs(geometry_fine,splashingsolver,config_container[ZONE_0],runtimeSplashing);
+        PTsolver->ComputeSplashingBCs(geometry_fine,config_container[ZONE_0],runtimeSplashing);
           
         //cout<<"\n\n\t"<< rank <<" after ComputeSplashingBCs \n\n";  
       }
@@ -249,56 +242,6 @@ void CPTDriver::StartSolver() {
       #ifdef HAVE_MPI
         SU2_MPI::Barrier(MPI_COMM_WORLD);
       #endif
-
-  //     if(splashing){
-  //       /*--- Set splashing as runtime ---*/
-  //       setRuntimeSplashing();
-
-  //       /*--- Compute BCs for splashing droplets ---*/
-        
-  //       unsigned short FinestMesh = config_container[ZONE_0]->GetFinestMesh();    
-  //       CGeometry* geometry_fine = geometry_container[ZONE_0][INST_0][FinestMesh];
-  //       CSolver** solvers_fine = solver_container[ZONE_0][INST_0][FinestMesh];
-  //       CPTSolver *splashingsolver = dynamic_cast<CPTSolver*>(solvers_fine[SPLASHINGPT_SOL]);
-  //       CPTSolver *PTsolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
-
-        
-  //       /*--- Compute BCs for splashing droplets (and corrects BETA) ---*/
-  //       PTsolver->ComputeSplashingBCs(geometry_fine,splashingsolver,config_container[ZONE_0],runtimeSplashing);
-            
-        
-
-
-  // #ifdef HAVE_MPI
-  //   SU2_MPI::Barrier(MPI_COMM_WORLD);
-  // #endif
-
-  //       cout << "\n before preprocess \n";
-  //       Preprocess(TimeIter);
-
-  //       /*--- Run a time-step iteration of the single-zone problem. ---*/
-  //       cout << "\n before run \n";
-  //       Run();
-
-  //       /*--- Perform some postprocessing on the solution before the update ---*/
-  //       cout << "\n before postprocess \n";
-  //       Postprocess();
-
-  //       /*--- Update the solution for dual time stepping strategy ---*/
-
-  //       Update();
-
-  //       /*--- Monitor the computations after each iteration. ---*/
-
-  //       Monitor(TimeIter);
-
-  //       /*--- Output the solution in files. ---*/
-  //       Output(TimeIter);
-
-  //     }
-
-      
-      
 
 
       /*--- If the convergence criteria has been met, terminate the simulation. ---*/
@@ -344,16 +287,8 @@ void CPTDriver::Preprocess(unsigned long TimeIter) {
                                                                             config_container[ZONE_0], TimeIter);
   }
   else {
-    if(runtimeSplashing) {
-
-      solver_container[ZONE_0][INST_0][MESH_0][SPLASHINGPT_SOL]->SetInitialCondition(
-      geometry_container[ZONE_0][INST_0], solver_container[ZONE_0][INST_0], config_container[ZONE_0], TimeIter);
-      
-    } 
-    else {
-      solver_container[ZONE_0][INST_0][MESH_0][PT_SOL]->SetInitialCondition(
-      geometry_container[ZONE_0][INST_0], solver_container[ZONE_0][INST_0], config_container[ZONE_0], TimeIter);
-    }
+    solver_container[ZONE_0][INST_0][MESH_0][PT_SOL]->SetInitialCondition(
+    geometry_container[ZONE_0][INST_0], solver_container[ZONE_0][INST_0], config_container[ZONE_0], TimeIter);
   }
 
 
@@ -386,19 +321,11 @@ void CPTDriver::Run() {
                                                solver_container, numerics_container, config_container, surface_movement,
                                                grid_movement, FFDBox, ZONE_0, INST_0);
   } else {
-    if(runtimeSplashing){
-
-      iteration_container_splashingPT[ZONE_0][INST_0]->Solve(output_container_splashingPT[ZONE_0], integration_container, geometry_container,
+    iteration_container_PT[ZONE_0][INST_0]->Solve(output_container_PT[ZONE_0], integration_container, geometry_container,
                                                solver_container, numerics_container, config_container, surface_movement,
                                                grid_movement, FFDBox, ZONE_0, INST_0);  
 
-    }
-    else{
-      iteration_container_PT[ZONE_0][INST_0]->Solve(output_container_PT[ZONE_0], integration_container, geometry_container,
-                                               solver_container, numerics_container, config_container, surface_movement,
-                                               grid_movement, FFDBox, ZONE_0, INST_0);  
-
-    }
+    
   }
 
 }
@@ -410,20 +337,12 @@ void CPTDriver::Postprocess() {
         output_container[ZONE_0], integration_container, geometry_container, solver_container, numerics_container,
         config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
   } else {
-    if(runtimeSplashing){
 
-      iteration_container_PT[ZONE_0][INST_0]->Postprocess(
-        output_container_splashingPT[ZONE_0], integration_container, geometry_container, solver_container, numerics_container,
-        config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
-
-    }
-    else{
-
-      iteration_container_PT[ZONE_0][INST_0]->Postprocess(
+    iteration_container_PT[ZONE_0][INST_0]->Postprocess(
         output_container_PT[ZONE_0], integration_container, geometry_container, solver_container, numerics_container,
         config_container, surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
 
-    }
+    
   }
 
     /*--- A corrector step can help preventing numerical instabilities ---*/
@@ -441,17 +360,10 @@ void CPTDriver::Update() {
                                                 solver_container, numerics_container, config_container,
                                                 surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
   } else {
-    if(runtimeSplashing){
-      iteration_container_PT[ZONE_0][INST_0]->Update(output_container_splashingPT[ZONE_0], integration_container, geometry_container,
+    iteration_container_PT[ZONE_0][INST_0]->Update(output_container_PT[ZONE_0], integration_container, geometry_container,
                                                 solver_container, numerics_container, config_container,
                                                 surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
 
-    }else{
-      iteration_container_PT[ZONE_0][INST_0]->Update(output_container_PT[ZONE_0], integration_container, geometry_container,
-                                                solver_container, numerics_container, config_container,
-                                                surface_movement, grid_movement, FFDBox, ZONE_0, INST_0);
-
-    }
   }
 
 }
@@ -474,19 +386,11 @@ void CPTDriver::Output(unsigned long TimeIt) {
                                                                solver_container[ZONE_0][INST_0][MESH_0],
                                                                TimeIt, StopCalc);
   else{
-    if(runtimeSplashing){
-      wrote_files = output_container_splashingPT[ZONE_0]->SetResult_Files(geometry_container[ZONE_0][INST_0][MESH_0],
+    wrote_files = output_container_PT[ZONE_0]->SetResult_Files(geometry_container[ZONE_0][INST_0][MESH_0],
                                                                config_container[ZONE_0],
                                                                solver_container[ZONE_0][INST_0][MESH_0],
                                                                TimeIt, StopCalc);
 
-    }else{
-      wrote_files = output_container_PT[ZONE_0]->SetResult_Files(geometry_container[ZONE_0][INST_0][MESH_0],
-                                                               config_container[ZONE_0],
-                                                               solver_container[ZONE_0][INST_0][MESH_0],
-                                                               TimeIt, StopCalc);
-
-    }
   }
 
   if (wrote_files){
@@ -540,12 +444,8 @@ bool CPTDriver::Monitor(unsigned long TimeIter){
     output = output_container[ZONE_0];
   }
   else{
-    if(runtimeSplashing){
-      output = output_container_splashingPT[ZONE_0];
-    }
-    else{
-      output = output_container_PT[ZONE_0];
-    }
+    output = output_container_PT[ZONE_0];
+    
   }
 
   nInnerIter = config_container[ZONE_0]->GetnInner_Iter();
@@ -631,12 +531,8 @@ bool CPTDriver::GetTimeConvergence() const{
 
   }
   else{
-    if(runtimeSplashing){
-      output =  output_container_splashingPT[ZONE_0];
-    }
-    else{
-       output = output_container_PT[ZONE_0];
-    }
+    output = output_container_PT[ZONE_0];
+    
   }
   return output->GetTimeConvergence();
 }

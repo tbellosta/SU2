@@ -1114,7 +1114,6 @@ void CConfig::SetConfig_Options() {
   addBoolOption("WEAKLY_COUPLED_HEAT_EQUATION", Weakly_Coupled_Heat, NO);
 
   addBoolOption("RESTART_PT", Restart_PT, YES);
-  addBoolOption("RESTART_SPLASHINGPT", Restart_splashingPT, YES);
 
   /*\brief AXISYMMETRIC \n DESCRIPTION: Axisymmetric simulation \n DEFAULT: false \ingroup Config */
   addBoolOption("AXISYMMETRIC", Axisymmetric, false);
@@ -1761,7 +1760,6 @@ void CConfig::SetConfig_Options() {
   /*!\brief CONV_RESIDUAL_MINVAL\n DESCRIPTION: Min value of the residual (log10 of the residual)\n DEFAULT: -14.0 \ingroup Config*/
   addDoubleOption("CONV_RESIDUAL_MINVAL", MinLogResidual, -14.0);
   addDoubleOption("CONV_RESIDUAL_MINVAL_PT", MinLogResidual_PT, -14.0);
-  addDoubleOption("CONV_RESIDUAL_MINVAL_SPLASHINGPT", MinLogResidual_splashingPT, -14.0);
   /*!\brief CONV_STARTITER\n DESCRIPTION: Iteration number to begin convergence monitoring\n DEFAULT: 5 \ingroup Config*/
   addUnsignedLongOption("CONV_STARTITER", StartConv_Iter, 5);
   /*!\brief CONV_CAUCHY_ELEMS\n DESCRIPTION: Number of elements to apply the criteria. \n DEFAULT 100 \ingroup Config*/
@@ -2001,25 +1999,21 @@ void CConfig::SetConfig_Options() {
   /*!\brief CONV_FILENAME \n DESCRIPTION: Output file convergence history (w/o extension) \n DEFAULT: history \ingroup Config*/
   addStringOption("CONV_FILENAME", Conv_FileName, string("history"));
   addStringOption("CONV_FILENAME_PT", Conv_FileName_PT, string("history"));
-  addStringOption("CONV_FILENAME_SPLASHINGPT", Conv_FileName_splashingPT, string("history"));
   /*!\brief BREAKDOWN_FILENAME \n DESCRIPTION: Output file forces breakdown \ingroup Config*/
   addStringOption("BREAKDOWN_FILENAME", Breakdown_FileName, string("forces_breakdown.dat"));
   /*!\brief SOLUTION_FLOW_FILENAME \n DESCRIPTION: Restart flow input file (the file output under the filename set by RESTART_FLOW_FILENAME) \n DEFAULT: solution_flow.dat \ingroup Config */
   addStringOption("SOLUTION_FILENAME", Solution_FileName, string("solution.dat"));
   addStringOption("SOLUTION_FILENAME_PT", Solution_FileName_PT, string("solution.dat"));
-  addStringOption("SOLUTION_FILENAME_SPLASHINGPT", Solution_FileName_splashingPT, string("solution.dat"));
   /*!\brief SOLUTION_ADJ_FILENAME\n DESCRIPTION: Restart adjoint input file. Objective function abbreviation is expected. \ingroup Config*/
   addStringOption("SOLUTION_ADJ_FILENAME", Solution_AdjFileName, string("solution_adj.dat"));
   /*!\brief RESTART_FLOW_FILENAME \n DESCRIPTION: Output file restart flow \ingroup Config*/
   addStringOption("RESTART_FILENAME", Restart_FileName, string("restart.dat"));
   addStringOption("RESTART_FILENAME_PT", Restart_FileName_PT, string("restart.dat"));
-  addStringOption("RESTART_FILENAME_SPLASHINGPT", Restart_FileName_splashingPT, string("restart.dat"));
   /*!\brief RESTART_ADJ_FILENAME  \n DESCRIPTION: Output file restart adjoint. Objective function abbreviation will be appended. \ingroup Config*/
   addStringOption("RESTART_ADJ_FILENAME", Restart_AdjFileName, string("restart_adj.dat"));
   /*!\brief VOLUME_FLOW_FILENAME  \n DESCRIPTION: Output file flow (w/o extension) variables \ingroup Config */
   addStringOption("VOLUME_FILENAME", Volume_FileName, string("vol_solution"));
   addStringOption("VOLUME_FILENAME_PT", Volume_FileName_PT, string("vol_solution"));
-  addStringOption("VOLUME_FILENAME_SPLASHINGPT", Volume_FileName_splashingPT, string("vol_solution"));
   /*!\brief VOLUME_ADJ_FILENAME
    *  \n DESCRIPTION: Output file adjoint (w/o extension) variables  \ingroup Config*/
   addStringOption("VOLUME_ADJ_FILENAME", Adj_FileName, string("adj_vol_solution"));
@@ -2033,7 +2027,6 @@ void CConfig::SetConfig_Options() {
    *  \n DESCRIPTION: Output file surface flow coefficient (w/o extension)  \ingroup Config*/
   addStringOption("SURFACE_FILENAME", SurfCoeff_FileName, string("surface"));
   addStringOption("SURFACE_FILENAME_PT", SurfCoeff_FileName_PT, string("surface"));
-  addStringOption("SURFACE_FILENAME_SPLASHINGPT", SurfCoeff_FileName_splashingPT, string("surface"));
   /*!\brief SURFACE_ADJ_FILENAME
    *  \n DESCRIPTION: Output file surface adjoint coefficient (w/o extension)  \ingroup Config*/
   addStringOption("SURFACE_ADJ_FILENAME", SurfAdjCoeff_FileName, string("surface_adjoint"));
@@ -8106,7 +8099,6 @@ unsigned short CConfig::GetContainerPosition(unsigned short val_eqsystem) {
     case RUNTIME_TRANS_SYS:     return TRANS_SOL;
     case RUNTIME_HEAT_SYS:      return HEAT_SOL;
     case RUNTIME_PT_SYS:        return PT_SOL;
-    case RUNTIME_SPLASHINGPT_SYS:return SPLASHINGPT_SOL;
     case RUNTIME_FEA_SYS:       return FEA_SOL;
     case RUNTIME_ADJPOT_SYS:    return ADJFLOW_SOL;
     case RUNTIME_ADJFLOW_SYS:   return ADJFLOW_SOL;

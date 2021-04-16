@@ -53,7 +53,6 @@ class CPTSolver final : public CSolver {
 
   su2double realFreestreamLWC, FreestreamLWC, FreestreamLWC_overall, FreeStreamUMag, ReferenceLenght;
   su2double p0,t0,mu0,a0;
-  bool splashingPT; //is this CPTSolver instance solving the droplets or the splashing droplets
   su2double dropletDynamicViscosity, dropletSurfaceTension, dropletDensity;
   unsigned short iBin=0;
   unsigned short nBin=0;
@@ -70,9 +69,7 @@ class CPTSolver final : public CSolver {
    */
   inline CVariable* GetBaseClassPointerToNodes() override { return nodes; }
 
-  bool GetSplashingPT(){return splashingPT;}
 
-  void SetSplashingPT(bool isSplashingPT){splashingPT = isSplashingPT;}
 
   void LimitSolution(void);
 
@@ -114,7 +111,7 @@ class CPTSolver final : public CSolver {
   /*!
    * \brief Constructor of the class.
    */
-  CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh, bool isSplashingPT);
+  CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh);
 
   /*!
    * \brief Destructor of the class.
@@ -311,7 +308,6 @@ class CPTSolver final : public CSolver {
                     unsigned short val_marker); //NO FINAL ????
 
   void ComputeSplashingBCs(CGeometry *geometry,
-                    CPTSolver *splashingSolver,  
                     CConfig *config,
                     bool runtimeSplashing);
 
