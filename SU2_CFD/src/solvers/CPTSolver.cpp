@@ -1704,7 +1704,7 @@ void CPTSolver::SetBin(unsigned short indexBin){
 }
 
 
-
+//NOT WORKING PROPERLY
 void CPTSolver::AdaptCFLNumberPT(CGeometry **geometry,
                              CSolver   ***solver_container,
                              CConfig   *config) {
@@ -1925,7 +1925,6 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CConfig *config, bool r
     unsigned long iVertex, iPoint, Point_Normal;
     unsigned short iMarker, KindBC, val_marker;
     bool foundEulerWall=false;
-    #define MAXNDIM 3
     su2double Area, ProjVelocity_i, V_boundary[4], V_domain[4], Normal[MAXNDIM] = {0.0}, UnitNormal[MAXNDIM] = {0.0},
                                                               V_wall[4], Relax;
 
@@ -2165,22 +2164,11 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CConfig *config, bool r
     else{
 
     }
-
-
-  //splashingSolver->SetSplashingDiameter(diameter_droplets); //Must correct this still, cant converge as is
-  //splashingSolver->SetSplashingDiameter(2e-5); //Must correct this still, cant converge as is
-  //cout << "\n ("<<rank<<") n Droplets Splashed = "<<n_tot_splashed<<"\n";
-  //cout << "\n ("<<rank<<") Diameter Splashing DropletsCOMP = "<<diameter_splashing_dropletsCOMP<<"\n";
-  //cout << " ("<<rank<<") Diameter Splashing Droplets = "<<splashingSolver->GetSplashingDiameter()<<"\n";
-
-  //InitiateComms(geometry, config, SOLUTION);
-  //CompleteComms(geometry, config, SOLUTION);
-  //splashingSolver->InitiateComms(geometry, config, SOLUTION);
-  //splashingSolver->CompleteComms(geometry, config, SOLUTION);
 }
 
 
 
+  #define MAXNDIM 3
 
 
 void CPTSolver::BC_Splashing_Wall(CGeometry* geometry, CSolver** solver_container, CNumerics* conv_numerics,
@@ -2188,7 +2176,6 @@ void CPTSolver::BC_Splashing_Wall(CGeometry* geometry, CSolver** solver_containe
   {
     unsigned short iDim, iVar;
     unsigned long iVertex, iPoint, Point_Normal;
-  #define MAXNDIM 3
 
     bool implicit = (config->GetKind_TimeIntScheme_PT() == EULER_IMPLICIT);
     bool viscous = config->GetViscous();
