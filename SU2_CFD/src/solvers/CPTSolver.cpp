@@ -193,7 +193,8 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh,
 
   V_inf = GeometryToolbox::Norm(nDim, config->GetVelocity_FreeStream());
 
-  FreestreamLWC = config->GetLiquidWaterContent();
+  FreestreamLWC = 1.0;
+  realFreestreamLWC = config->GetLiquidWaterContent();
   if(splashingPT){
     FreestreamLWC = FreestreamLWC/10000;
   }
@@ -337,11 +338,10 @@ void CPTSolver::LoadRestart(CGeometry **geometry, CSolver ***solver, CConfig *co
   }
   else{
 
-    if(iBin>0){
+    if(iBin>0.5){
       //Restart from previous bin solution in Multibin case to decrease computational time
       restart_filename = config->GetFilename(config->GetRestart_FileName_PT(), "", val_iter);  
       if(rank==MASTER_NODE){
-        //cout<<"\n\n\t In restart for multibin\n\n";
       }
     }  
     else{
@@ -1325,7 +1325,7 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
   }
 
   //Multibin restart from old bin
-  if(iBin>0){
+  if(iBin>0.5){
     solver_container[MESH_0][PT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
     
   }
@@ -1723,6 +1723,7 @@ void CPTSolver::BC_HeatFlux_Wall(CGeometry* geometry, CSolver** solver_container
 }
 
 void CPTSolver::InitializeMultiBin(su2double* MVD_v, su2double* perc_v,  su2double* CFL_v, su2double LWC, unsigned short nBins){
+  iBin=0;
   nBin = nBins;
   binMVD_v = MVD_v;
   binPerc_v = perc_v;
@@ -2013,7 +2014,7 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
     unsigned short FinestMesh = config->GetFinestMesh();    
     CGeometry* geometry_fine = geometry;
     diameter_droplets = GetDropletDiameter();
-    su2double LWC_inf = GetFreestreamLWC();                   //droplets freestream LWC
+    su2double LWC_inf = realFreestreamLWC;                   //droplets freestream LWC
     
     
   
@@ -2062,7 +2063,7 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CPTSolver *splashingSol
 
         //Compute wall/droplets impact angle
         su2double u_mag = 0;
-        su2double LWC = V_domain[0];
+        su2double LWC = realFreestreamLWC * V_domain[0];
         if(nDim==2){
           u_mag +=V_domain[1]*V_domain[1] + V_domain[2]*V_domain[2];
         }
@@ -2415,7 +2416,7 @@ void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
 
       iPoint = geometry->vertex[iMarker][iVertex]->GetNode();
 
-      if(iBin<1){
+      if(iBin==0){
         CollectionEfficiencyTOT[iMarker][iVertex] = 0.0;
         CollectionEfficiencyCorrectedSplashingTOT[iMarker][iVertex] = 0.0;
       }
@@ -2424,6 +2425,7 @@ void CPTSolver::computeCollectionEfficiency(CGeometry *geometry,
 
       for (iDim = 0; iDim < nDim; ++iDim)
         //CollectionEfficiency[iMarker][iVertex] += nodes->GetPrimitive(iPoint, iDim + 1) * Normal[iDim];
+        //CollectionEfficiency[iMarker][iVertex] += realFreestreamLWC * nodes->GetSolution(iPoint, iDim + 1) * Normal[iDim];
         CollectionEfficiency[iMarker][iVertex] += nodes->GetSolution(iPoint, iDim + 1) * Normal[iDim];
       //Absolutely not sure about this scaling
       if(config->GetMultiBin()){
@@ -2676,9 +2678,6 @@ su2double CPTSolver::computeRelaxationTime(CSolver** solver_container, unsigned 
   su2double d = dropletDiameter;
   if(splashingPT){
     d = GetSplashingDiameter();
-
-
-
   }
   su2double mu = 18.03e-6; //air dynamic viscosity
   //mu = 0.0011206;

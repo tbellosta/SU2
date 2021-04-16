@@ -51,12 +51,12 @@ class CPTSolver final : public CSolver {
   vector<vector<su2double>> splashingBCs;/*!< \brief vector containing BCs for splashing at wall. */
 
 
-  su2double FreestreamLWC, FreestreamLWC_overall, FreeStreamUMag, ReferenceLenght;
+  su2double realFreestreamLWC, FreestreamLWC, FreestreamLWC_overall, FreeStreamUMag, ReferenceLenght;
   su2double p0,t0,mu0,a0;
   bool splashingPT; //is this CPTSolver instance solving the droplets or the splashing droplets
   su2double dropletDynamicViscosity, dropletSurfaceTension, dropletDensity;
-  unsigned short iBin=-1;
-  unsigned short nBin=-1;
+  unsigned short iBin=0;
+  unsigned short nBin=0;
   su2double binPercentage;
   su2double multibinScaling;
   su2double* binPerc_v;
