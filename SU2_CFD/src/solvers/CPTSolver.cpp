@@ -2156,8 +2156,6 @@ void CPTSolver::ComputeSplashingBCs(CGeometry *geometry, CConfig *config, bool r
         diameter_splashing_dropletsCOMP = diameter_splashing_droplets_ALPHAAVG / tot_alpha;
         
 
-
-          //All BCs are in a vector of vectors in the splashing solver container (?)
       }
 
     }

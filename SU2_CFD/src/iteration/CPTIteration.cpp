@@ -79,7 +79,7 @@ void CPTIteration::Solve(COutput* output, CIntegration**** integration, CGeometr
     CSolver** solvers_fine = solver[ZONE_0][INST_0][FinestMesh];
     CPTSolver *PTsolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
     iBin = PTsolver->Get_iBin();
-    nBins = config[ZONE_0]->GetNBins();
+    nBins = PTsolver->Get_nBins();
   }
   for (Inner_Iter = 0; Inner_Iter < nInner_Iter; Inner_Iter++) {
     config[val_iZone]->SetInnerIter(Inner_Iter);

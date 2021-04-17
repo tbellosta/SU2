@@ -1248,6 +1248,7 @@ void CConfig::SetConfig_Options() {
   addDoubleListOption("MULTIBIN_MVD", nBins, MVD_multibin);
   addDoubleListOption("MULTIBIN_PERCENTAGE", nBins, percentage_multibin);
   addDoubleListOption("MULTIBIN_CFL", nBinsCFL, CFL_multibin);
+  addUnsignedShortOption("N_BINS",nBinsUser,0);
   addDoubleArrayOption("CFL_ADAPT_PARAM", 4, CFL_AdaptParam, default_cfl_adapt);
   addDoubleOption("DROPLET_DYNAMIC_VISCOSITY", dropletDynamicViscosity, 0.0);
   addDoubleOption("DROPLET_SURFACE_TENSION", dropletSurfaceTension, 0.0);

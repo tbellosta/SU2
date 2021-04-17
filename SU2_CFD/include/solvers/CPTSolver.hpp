@@ -103,6 +103,9 @@ class CPTSolver final : public CSolver {
   unsigned short Get_iBin(){
     return iBin;
   }
+  unsigned short Get_nBins(){
+    return nBin;
+  }
   /*!
    * \brief Constructor of the class.
    */

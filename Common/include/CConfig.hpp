@@ -1194,6 +1194,7 @@ private:
   su2double dropletDensity;
   bool multibin=false;
   unsigned short nBins;
+  unsigned short nBinsUser;
   unsigned short nBinsCFL;
   su2double* MVD_multibin;//contains list of bins in multibin PT
   su2double* percentage_multibin;//contains list of percentages in multibin PT
@@ -1633,6 +1634,8 @@ public:
     return percentage_multibin; }
   unsigned short GetNBins(void) const { 
     return nBins; }
+  unsigned short GetNBinsUser(void) const { 
+    return nBinsUser; }
   
 
   /*!

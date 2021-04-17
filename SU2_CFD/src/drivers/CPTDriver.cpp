@@ -131,37 +131,127 @@ void CPTDriver::StartSolver() {
     setRuntimeParticles();
 
 
+    int i = 0; 
     unsigned short FinestMesh = config_container[ZONE_0]->GetFinestMesh(); 
     CSolver** solvers_fine = solver_container[ZONE_0][INST_0][FinestMesh];
     CPTSolver *PTsolver = dynamic_cast<CPTSolver*>(solvers_fine[PT_SOL]);
-    su2double* MVD_multibin = config_container[ZONE_0]->GetMVDMultibin();
+    su2double* diameters_multibin = config_container[ZONE_0]->GetMVDMultibin();
     su2double* percentage_multibin = config_container[ZONE_0]->GetPercentageMultibin();
     su2double* CFL_multibin = config_container[ZONE_0]->GetCFLMultibin();
-    unsigned short nBins = config_container[ZONE_0]->GetNBins();
+    unsigned short nBins = 0;
+
     bool multibin = config_container[ZONE_0]-> GetMultiBin();
     PTsolver->multibin=multibin;
+
+    if(multibin){
+      if(diameters_multibin != nullptr && percentage_multibin != nullptr){
+        //bins already inserted by user in .cfg
+        nBins = config_container[ZONE_0]->GetNBins();
+      }
+      else{
+        //must compute multibin distribution using Langmuir D distribution double 12th order polynomial fit
+        nBins = config_container[ZONE_0]->GetNBinsUser();
+        su2double diameters_tmp[nBins];
+        su2double percentage_tmp[nBins];
+
+        su2double poly_coeff1[13] = {0.9997,-0.0073,0.8022,-16.1160,129.4137,-621.6733,1805.9536, 
+        -3120.2903,2886.3084,-740.7042,-1030.8815,952.6488,-245.9530};
+        su2double poly_coeff2[13] = {31.183098532270120,-1.941145818967928e+02,5.442444544336961e+02,-8.664362455492004e+02,
+        8.406650710006957e+02,-4.828259304177341e+02,1.187099872116714e+02, 
+        41.801778610435974,-48.806507186880935,20.101826063061310,
+        -4.555851892681544,0.562876844773370,-0.029765667278845};
+        
+        //MVD step ratio
+        su2double diameter_ratio_step = (su2double)3 / (su2double)nBins;
+        su2double MVD = config_container[ZONE_0]->GetParticle_Size();
+
+        su2double previous_LWC_fraction = 1;
+
+        //MVD ratio above which polynomial 1 must be switched for polynomial 2
+        su2double diameter_ratio_cutoff12 = 0.9;
+
+
+        for(i=0; i<nBins;i++){
+          su2double diameter_ratio_i = (i+1)* diameter_ratio_step;
+          diameters_tmp[i] = diameter_ratio_i * MVD;
+          su2double *poly_coeff = (su2double*)malloc(sizeof(su2double)*13);;
+
+          su2double LWC_fraction_i = 0;
+          unsigned short n = 0;
+          if(diameter_ratio_i < diameter_ratio_cutoff12){
+            //use polynomial 1
+            unsigned short j=0;
+            for(j=0;j<13;j++){
+              poly_coeff[j] = poly_coeff1[j];
+            }
+          }else{
+            //use polynomial 2
+            unsigned short j=0;
+            for(j=0;j<13;j++){
+              poly_coeff[j] = poly_coeff2[j];
+            }
+          }
+          //if(rank == MASTER_NODE){unsigned short j=0;
+          //  for(j=0;j<13;j++){
+          //    cout << "\n poly = " <<poly_coeff[j] << "";
+          //  }
+          //}
+
+
+          for(n=0; n<13; n++){
+            LWC_fraction_i += poly_coeff[n] * pow(diameter_ratio_i,n);
+          }
+
+          //if(rank == MASTER_NODE){
+          //  cout << "\n diam_frac = " <<diameter_ratio_i << "";
+          //  cout << "\n LWC_frac = " <<LWC_fraction_i << "";
+          //  cout << "\n prev_LWC_frac = " <<previous_LWC_fraction << "\n\n";
+          //}
+
+          percentage_tmp[i] = 100 * (previous_LWC_fraction - LWC_fraction_i); 
+
+          
+
+          previous_LWC_fraction = LWC_fraction_i;
+        }
+
+        diameters_multibin = (su2double*)malloc(sizeof(su2double)*nBins);
+        percentage_multibin = (su2double*)malloc(sizeof(su2double)*nBins);
+
+        for(i=0;i<nBins;i++){
+          diameters_multibin[i] = diameters_tmp[i];
+          percentage_multibin[i] = percentage_tmp[i]; 
+        }
+
+
+        for(i=0;i<nBins;i++){
+          diameters_multibin[i] = diameters_tmp[i];
+          percentage_multibin[i] = percentage_tmp[i]; 
+        }
+      }
+    }
+    
     su2double LWC_inf = config_container[ZONE_0]->GetLiquidWaterContent();
     
 
 
     if(multibin){ //only steady multibin
-
-      int i = 0;  
+ 
 
       if(rank==MASTER_NODE){
         cout << "\n\n RUNNING PARTICLE TRACKING WITH MULTIBIN DATA: \n";
         for (i = 0;i<nBins;i++){
-          cout << " "<<i+1<<")\t " << percentage_multibin[i]<< "%   \t-    MVD = "<< MVD_multibin[i] << " micrometers\n";
+          cout << " "<<i+1<<")\t " << percentage_multibin[i]<< "%   \t|     MVD = "<< diameters_multibin[i] << " micrometers\n";
         
         }
       }
 
-      PTsolver->InitializeMultiBin(MVD_multibin, percentage_multibin, CFL_multibin, LWC_inf, nBins);
+      PTsolver->InitializeMultiBin(diameters_multibin, percentage_multibin, CFL_multibin, LWC_inf, nBins);
 
       //running simulation for each bin
       for (i = 0;i<nBins;i++){
         if(rank==MASTER_NODE){
-          cout << "\n\nRUNNING BIN "<<i+1<<")\t" << percentage_multibin[i]<< "%   \t-    MVD = "<< MVD_multibin[i] << " micrometers\n\n";
+          cout << "\n\nRUNNING BIN "<<i+1<<")\t" << percentage_multibin[i]<< "%   \t-    MVD = "<< diameters_multibin[i] << " micrometers\n\n";
         }
 
         //not sure i should simulate each bin with the same LWC_inf
