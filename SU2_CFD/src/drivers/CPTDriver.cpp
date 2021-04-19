@@ -151,6 +151,25 @@ void CPTDriver::StartSolver() {
       else{
         //must compute multibin distribution using Langmuir D distribution double 12th order polynomial fit
         nBins = config_container[ZONE_0]->GetNBinsUser();
+
+        if(nBins>60){
+          nBins=60;
+          if(rank==MASTER_NODE){
+            cout <<"+-----------------------------------------------------------------------+" << endl;
+            cout<<"|\n|\n| Number of bins requested is too high, maximum is 60. Automatically limited. \n|\n|\n";
+            cout <<"-----------------------------------------------------------------------+" << endl;
+          }
+        }
+        else{
+          if(nBins<=0){
+            nBins=1;
+            if(rank==MASTER_NODE){
+            cout <<"+-----------------------------------------------------------------------+" << endl;
+            cout<<"|\n|\n| Number of bins requested is too low, minimum is 1. Automatically raised. |\n|\n|\n";
+            cout <<"+-----------------------------------------------------------------------+" << endl;
+            }
+          }
+        }
         su2double diameters_tmp[nBins];
         su2double percentage_tmp[nBins];
 
@@ -201,6 +220,12 @@ void CPTDriver::StartSolver() {
           for(n=0; n<13; n++){
             LWC_fraction_i += poly_coeff[n] * pow(diameter_ratio_i,n);
           }
+          if(LWC_fraction_i>=1){
+            LWC_fraction_i =1;
+          }
+          if(LWC_fraction_i<=0){
+            LWC_fraction_i = 0;
+          }
 
           //if(rank == MASTER_NODE){
           //  cout << "\n diam_frac = " <<diameter_ratio_i << "";
@@ -209,6 +234,9 @@ void CPTDriver::StartSolver() {
           //}
 
           percentage_tmp[i] = 100 * (previous_LWC_fraction - LWC_fraction_i); 
+          if(percentage_tmp[i]<0){
+            //percentage_tmp[i]<0 = 0;
+          }
 
           
 
@@ -239,11 +267,16 @@ void CPTDriver::StartSolver() {
  
 
       if(rank==MASTER_NODE){
-        cout << "\n\n RUNNING PARTICLE TRACKING WITH MULTIBIN DATA: \n";
+        cout <<"+-----------------------------------------------------------------------+" << endl;
+        cout << "|\n| Runnin particle tracking using following multibin data: \n|\n";
+        cout <<"+-----------------------------------------------------------------------+" << endl;
+        cout <<"| \t LWC (%) \t|     Particle Diameter (m)"<<endl;
+        cout <<"+-----------------------------------------------------------------------+" << endl;
         for (i = 0;i<nBins;i++){
-          cout << " "<<i+1<<")\t " << percentage_multibin[i]<< "%   \t|     MVD = "<< diameters_multibin[i] << " micrometers\n";
+          cout << "| "<<i+1<<")\t " << percentage_multibin[i]<< "%   \t|     "<< diameters_multibin[i]<<"\n";
         
         }
+        cout <<"+-----------------------------------------------------------------------+" << endl;
       }
 
       PTsolver->InitializeMultiBin(diameters_multibin, percentage_multibin, CFL_multibin, LWC_inf, nBins);
@@ -251,7 +284,7 @@ void CPTDriver::StartSolver() {
       //running simulation for each bin
       for (i = 0;i<nBins;i++){
         if(rank==MASTER_NODE){
-          cout << "\n\nRUNNING BIN "<<i+1<<")\t" << percentage_multibin[i]<< "%   \t-    MVD = "<< diameters_multibin[i] << " micrometers\n\n";
+          cout << "|\n|   Runnin Bin "<<i+1<<")\t" << percentage_multibin[i]<< "%   \t-    MVD = "<< diameters_multibin[i] << " (m)\n|\n";
         }
 
         //not sure i should simulate each bin with the same LWC_inf

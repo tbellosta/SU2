@@ -1262,10 +1262,10 @@ void CPTSolver::SetInitialCondition(CGeometry **geometry, CSolver ***solver_cont
   }
 
   //Multibin restart from old bin
-  if(iBin>0.5){
-    solver_container[MESH_0][PT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
-    
-  }
+  //if(iBin>0.5){
+  // solver_container[MESH_0][PT_SOL]->LoadRestart(geometry, solver_container, config, SU2_TYPE::Int(config->GetRestart_Iter()-1), true);
+  //  
+  //}
 
 
 }
