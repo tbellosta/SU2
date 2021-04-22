@@ -118,10 +118,6 @@ void CConv_PT::GetProjFluxJacobianPT(const su2double* VolFraction, const su2doub
 }
 
 
-
-
-
-
 CUpwRusanov_PT::CUpwRusanov_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) :
     CConv_PT(val_nDim, val_nVar, config) { }
 
@@ -274,33 +270,6 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
         val_Jacobian_j[iVar][jVar] = 0.0;
       }
     }
-
-//    if (sL >= 0) {
-//      GetProjFluxJacobianPT(&Density_i, Velocity_i, &Pressure_i, Normal, val_Jacobian_i);
-//    } else if (sM > 0) {
-//
-//      aStar = 1.0 / ((sM-projVel_i)/a + (1/Density_i));
-//
-//      IntermediateState[0] = aStar;
-//      for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_i[iDim] + (sM-projVel_i)*UnitNormal[iDim];
-//      IntermediateState[nDim+1] = pStar;
-//
-//      GetProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, Normal, val_Jacobian_i);
-//
-//    } else if (sR > 0) {
-//
-//      aStar = 1.0 / ((projVel_j-sM)/a + (1/Density_j));
-//
-//      IntermediateState[0] = aStar;
-//      for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_i[iDim] + (sM-projVel_j)*UnitNormal[iDim];
-//      IntermediateState[nDim+1] = pStar;
-//
-//      GetProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, Normal, val_Jacobian_j);
-//
-//    } else {
-//      GetProjFluxJacobianPT(&Density_j, Velocity_j, &Pressure_j, Normal, val_Jacobian_j);
-//    }
-
   }
 
 

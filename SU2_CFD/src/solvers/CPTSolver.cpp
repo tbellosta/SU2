@@ -595,10 +595,6 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
 
       Normal = geometry->edges->GetNormal(iEdge);
 
-      if(numerics == nullptr){
-        
-        cout<<"\n EMPTY NUMERICS \n";
-      }
 
       numerics->SetNormal(Normal);
       Area = GeometryToolbox::Norm(nDim,geometry->edges->GetNormal(iEdge));
@@ -651,8 +647,9 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
           }
 
         }
-        MUSCLSol_i[iVar-1] = V_i[iVar-1];
-        MUSCLSol_j[iVar-1] = V_j[iVar-1];
+        //Why?
+        //MUSCLSol_i[iVar-1] = V_i[iVar-1];
+        //MUSCLSol_j[iVar-1] = V_j[iVar-1];
 
         /*--- Check for non-physical solutions after reconstruction. If found, use the
        cell-average value of the solution. This is a locally 1st order approximation,
