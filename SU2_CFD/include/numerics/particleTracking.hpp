@@ -67,6 +67,9 @@ class CConv_PT : public CNumerics {
    void GetProjFluxJacobianPT(const su2double* VolFraction, const su2double* Vel, const su2double* Pi,
                               const su2double* Norm, su2double** ProjJac) const;
 
+  void GetFullProjFluxJacobianPT(const su2double* VolFraction, const su2double* Vel, const su2double* Pi,
+                             const su2double* Norm, su2double ProjJac[][4]) const;
+
 };
 
 
@@ -109,6 +112,9 @@ class CUpwRusanov_PT : public CConv_PT {
  * \version 7.0.7 "Blackbird"
  */
 class CUpwGodunov_PT : public CConv_PT {
+ private:
+  void dWSLdW(const double* Prim_i, const double* Prim_j, const double* UnitNormal, double dwdwl[][4], double dwdwr[][4]);
+  void dWSRdW(const double* Prim_i, const double* Prim_j, const double* UnitNormal, double dwdwl[][4], double dwdwr[][4]);
 
  public:
   /*!

@@ -118,6 +118,27 @@ void CConv_PT::GetProjFluxJacobianPT(const su2double* VolFraction, const su2doub
 }
 
 
+void CConv_PT::GetFullProjFluxJacobianPT(const su2double* VolFraction, const su2double* Vel, const su2double* Pi,
+                                     const su2double* Norm, su2double ProjJac[][4]) const {
+
+  su2double alpha = *VolFraction;
+  su2double u = Vel[0];
+  su2double v = Vel[1];
+  su2double P = (*Pi);
+  su2double q = GeometryToolbox::DotProduct(nDim,Vel,Norm);
+  su2double aq = (*VolFraction)*q;
+
+  const su2double a = RelaxationFactor;
+
+  ProjJac[0][0] = 0;                     ProjJac[0][1] = Norm[0];                     ProjJac[0][2] = Norm[1];                ProjJac[0][3] = 0;
+  ProjJac[1][0] = -u*q-P*Norm[0]/alpha;  ProjJac[1][1] = q+u*Norm[0];                 ProjJac[1][2] = u*Norm[1];              ProjJac[1][3] = Norm[0]/alpha;
+  ProjJac[2][0] = -v*q-P*Norm[1]/alpha;  ProjJac[2][1] = v*Norm[0];                   ProjJac[2][2] = q+v*Norm[1];            ProjJac[2][3] = Norm[1]/alpha;
+  ProjJac[3][0] = -q*P -a*a*q/alpha;     ProjJac[3][1] = (P+a*a/alpha)*Norm[0];       ProjJac[3][2] = (P+a*a/alpha)*Norm[1];  ProjJac[3][3] = q;
+
+  if (nDim == 3) SU2_MPI::Error("Jacobian not implemented for 3D cases.", CURRENT_FUNCTION);
+}
+
+
 
 
 
@@ -275,37 +296,225 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
       }
     }
 
-//    if (sL >= 0) {
-//      GetProjFluxJacobianPT(&Density_i, Velocity_i, &Pressure_i, Normal, val_Jacobian_i);
-//    } else if (sM > 0) {
-//
-//      aStar = 1.0 / ((sM-projVel_i)/a + (1/Density_i));
-//
-//      IntermediateState[0] = aStar;
-//      for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_i[iDim] + (sM-projVel_i)*UnitNormal[iDim];
-//      IntermediateState[nDim+1] = pStar;
-//
-//      GetProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, Normal, val_Jacobian_i);
-//
-//    } else if (sR > 0) {
-//
-//      aStar = 1.0 / ((projVel_j-sM)/a + (1/Density_j));
-//
-//      IntermediateState[0] = aStar;
-//      for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_i[iDim] + (sM-projVel_j)*UnitNormal[iDim];
-//      IntermediateState[nDim+1] = pStar;
-//
-//      GetProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, Normal, val_Jacobian_j);
-//
-//    } else {
-//      GetProjFluxJacobianPT(&Density_j, Velocity_j, &Pressure_j, Normal, val_Jacobian_j);
-//    }
+    if (sL >= 0) {
+      GetProjFluxJacobianPT(&Density_i, Velocity_i, &Pressure_i, Normal, val_Jacobian_i);
+    } else if (sM > 0) {
+
+      double fullJac[4][4];
+      double dWdWL[4][4];
+      double dWdWR[4][4];
+
+      aStar = a*Density_i / (Density_i*(sM-projVel_i) + a);
+
+      IntermediateState[0] = aStar;
+      for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_i[iDim] + (sM-projVel_i)*UnitNormal[iDim];
+
+      GetFullProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, Normal, fullJac);
+
+      dWSLdW(V_i, V_j, UnitNormal, dWdWL, dWdWR);
+      for (int iVar = 0; iVar < nVar; ++iVar) {
+        for (int jVar = 0; jVar < nVar; ++jVar) {
+          for (int kVar = 0; kVar < nVar + 1; ++kVar) {
+            val_Jacobian_i[iVar][jVar] = fullJac[iVar][kVar] * dWdWL[kVar][jVar];
+            val_Jacobian_j[iVar][jVar] = fullJac[iVar][kVar] * dWdWR[kVar][jVar];
+          }
+        }
+      }
+
+    } else if (sR > 0) {
+
+      double fullJac[4][4];
+      double dWdWL[4][4];
+      double dWdWR[4][4];
+
+      aStar = a*Density_j / (Density_j*(projVel_j-sM) + a);
+
+      IntermediateState[0] = aStar;
+      for (int iDim = 0; iDim < nDim; ++iDim) IntermediateState[iDim+1] = Velocity_j[iDim] + (sM-projVel_j)*UnitNormal[iDim];
+
+      GetFullProjFluxJacobianPT(&aStar, &(IntermediateState[1]), &pStar, Normal, fullJac);
+
+      dWSRdW(V_i, V_j, UnitNormal, dWdWL, dWdWR);
+      for (int iVar = 0; iVar < nVar; ++iVar) {
+        for (int jVar = 0; jVar < nVar; ++jVar) {
+          for (int kVar = 0; kVar < nVar + 1; ++kVar) {
+            val_Jacobian_i[iVar][jVar] = fullJac[iVar][kVar] * dWdWL[kVar][jVar];
+            val_Jacobian_j[iVar][jVar] = fullJac[iVar][kVar] * dWdWR[kVar][jVar];
+          }
+        }
+      }
+
+    } else {
+      GetProjFluxJacobianPT(&Density_j, Velocity_j, &Pressure_j, Normal, val_Jacobian_j);
+    }
 
   }
 
 
 }
+void CUpwGodunov_PT::dWSLdW(const double* Prim_i, const double* Prim_j, const double* UnitNormal, double dwdwl[][4], double dwdwr[][4]) {
 
+  const double al = Prim_i[0];
+  const double ar = Prim_j[0];
+
+  double ql = 0, qr = 0;
+
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    ql += Prim_i[iDim+1]*UnitNormal[iDim];
+    qr += Prim_j[iDim+1]*UnitNormal[iDim];
+  }
+
+  const double den = pow(0.5*al*(qr-ql)+RelaxationFactor,2);
+  const double aStar = RelaxationFactor*al / (0.5*al*(qr-ql) + RelaxationFactor);
+  const double pStar = 0.5*RelaxationFactor*(ql-qr);
+  double uStar[3];
+  for (int iDim = 0; iDim < nDim; ++iDim)
+    uStar[iDim] = Prim_i[iDim+1] + 0.5*(qr-ql)*UnitNormal[iDim];
+
+
+
+  /*-- dAlpha/dU --*/
+  dwdwl[0][0] = RelaxationFactor*(RelaxationFactor - 0.5*al*ql) / den;
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwl[0][iDim+1] = 0.5*RelaxationFactor*al*UnitNormal[iDim] / den;
+  }
+  dwdwl[0][nDim+1] = 0;
+
+  dwdwr[0][0] = -(0.5*RelaxationFactor*al*al*qr/ar) / den;
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwr[0][iDim+1] = -0.5*RelaxationFactor*al*al*UnitNormal[iDim] / (den*ar);
+  }
+  dwdwr[0][nDim+1] = 0;
+
+  /*-- dMomentum/dU --*/
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwl[iDim + 1][0] = UnitNormal[iDim]*ql / (2*al);
+    for (int jDim = 0; jDim < nDim; ++jDim) {
+      dwdwl[iDim+1][jDim + 1] = -UnitNormal[iDim]*UnitNormal[jDim] / (2*al);
+    }
+    dwdwl[iDim+1][nDim + 1] = 0;
+  }
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    for (int iVar = 0; iVar < nVar+1; ++iVar) {
+      dwdwl[iDim + 1][iVar] = aStar* dwdwl[iDim + 1][iVar] + uStar[iDim+1]* dwdwl[0][iVar];
+    }
+  }
+
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwr[iDim + 1][0] = -UnitNormal[iDim]*qr / (2*ar);
+    for (int jDim = 0; jDim < nDim; ++jDim) {
+      dwdwr[iDim+1][jDim + 1] = UnitNormal[iDim]*UnitNormal[jDim] / (2*ar);
+    }
+    dwdwr[iDim+1][nDim + 1] = 0;
+  }
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    for (int iVar = 0; iVar < nVar+1; ++iVar) {
+      dwdwr[iDim + 1][iVar] = aStar* dwdwr[iDim + 1][iVar] + uStar[iDim+1]* dwdwr[0][iVar];
+    }
+  }
+
+  /*-- dP/dU --*/
+  dwdwl[nDim+1][0] = -RelaxationFactor*ql / (2*al);
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwl[nDim+1][iDim+1] = RelaxationFactor*UnitNormal[iDim] / (2*al);
+  }
+  dwdwl[nDim+1][nDim+1] = 0;
+  for (int iVar = 0; iVar < nVar + 1; ++iVar) {
+    dwdwl[nDim+1][iVar] = aStar*dwdwl[nDim+1][iVar] + pStar*dwdwl[0][iVar];
+  }
+
+  dwdwr[nDim+1][0] = RelaxationFactor*qr / (2*ar);
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwr[nDim+1][iDim+1] = -RelaxationFactor*UnitNormal[iDim] / (2*ar);
+  }
+  dwdwr[nDim+1][nDim+1] = 0;
+  for (int iVar = 0; iVar < nVar + 1; ++iVar) {
+    dwdwr[nDim+1][iVar] = aStar*dwdwr[nDim+1][iVar] + pStar*dwdwr[0][iVar];
+  }
+
+}
+
+void CUpwGodunov_PT::dWSRdW(const double* Prim_i, const double* Prim_j, const double* UnitNormal, double dwdwl[][4], double dwdwr[][4]) {
+
+  const double al = Prim_i[0];
+  const double ar = Prim_j[0];
+
+  double ql = 0, qr = 0;
+
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    ql += Prim_i[iDim+1]*UnitNormal[iDim];
+    qr += Prim_j[iDim+1]*UnitNormal[iDim];
+  }
+
+  const double den = pow(0.5*ar*(qr-ql)+RelaxationFactor,2);
+  const double aStar = RelaxationFactor*ar / (0.5*ar*(qr-ql) + RelaxationFactor);
+  const double pStar = 0.5*RelaxationFactor*(ql-qr);
+  double uStar[3];
+  for (int iDim = 0; iDim < nDim; ++iDim)
+    uStar[iDim] = Prim_j[iDim+1] + 0.5*(ql-qr)*UnitNormal[iDim];
+
+
+
+  /*-- dAlpha/dU --*/
+  dwdwr[0][0] = RelaxationFactor*(RelaxationFactor + 0.5*ar*qr) / den;
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwr[0][iDim+1] = -0.5*RelaxationFactor*ar*UnitNormal[iDim] / den;
+  }
+  dwdwr[0][nDim+1] = 0;
+
+  dwdwl[0][0] = -(0.5*RelaxationFactor*ar*ar*ql/al) / den;
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwl[0][iDim+1] = 0.5*RelaxationFactor*ar*ar*UnitNormal[iDim] / (den*al);
+  }
+  dwdwl[0][nDim+1] = 0;
+
+  /*-- dMomentum/dU --*/
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwr[iDim + 1][0] = UnitNormal[iDim]*qr / (2*ar);
+    for (int jDim = 0; jDim < nDim; ++jDim) {
+      dwdwr[iDim+1][jDim + 1] = -UnitNormal[iDim]*UnitNormal[jDim] / (2*ar);
+    }
+    dwdwr[iDim+1][nDim + 1] = 0;
+  }
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    for (int iVar = 0; iVar < nVar+1; ++iVar) {
+      dwdwr[iDim + 1][iVar] = aStar* dwdwr[iDim + 1][iVar] + uStar[iDim+1]* dwdwr[0][iVar];
+    }
+  }
+
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwl[iDim + 1][0] = -UnitNormal[iDim]*ql / (2*al);
+    for (int jDim = 0; jDim < nDim; ++jDim) {
+      dwdwl[iDim+1][jDim + 1] = UnitNormal[iDim]*UnitNormal[jDim] / (2*al);
+    }
+    dwdwl[iDim+1][nDim + 1] = 0;
+  }
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    for (int iVar = 0; iVar < nVar+1; ++iVar) {
+      dwdwl[iDim + 1][iVar] = aStar* dwdwl[iDim + 1][iVar] + uStar[iDim+1]* dwdwl[0][iVar];
+    }
+  }
+
+  /*-- dP/dU --*/
+  dwdwr[nDim+1][0] = RelaxationFactor*qr / (2*ar);
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwr[nDim+1][iDim+1] = -RelaxationFactor*UnitNormal[iDim] / (2*ar);
+  }
+  dwdwr[nDim+1][nDim+1] = 0;
+  for (int iVar = 0; iVar < nVar + 1; ++iVar) {
+    dwdwr[nDim+1][iVar] = aStar*dwdwr[nDim+1][iVar] + pStar*dwdwr[0][iVar];
+  }
+
+  dwdwl[nDim+1][0] = -RelaxationFactor*ql / (2*al);
+  for (int iDim = 0; iDim < nDim; ++iDim) {
+    dwdwl[nDim+1][iDim+1] = RelaxationFactor*UnitNormal[iDim] / (2*al);
+  }
+  dwdwl[nDim+1][nDim+1] = 0;
+  for (int iVar = 0; iVar < nVar + 1; ++iVar) {
+    dwdwl[nDim+1][iVar] = aStar*dwdwl[nDim+1][iVar] + pStar*dwdwl[0][iVar];
+  }
+
+}
 
 CUpwFDS_PT::CUpwFDS_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) :
     CConv_PT(val_nDim, val_nVar, config) { }
