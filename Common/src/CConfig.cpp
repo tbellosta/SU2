@@ -1243,6 +1243,7 @@ void CConfig::SetConfig_Options() {
   addDoubleOption("MACH_NUMBER", Mach, 0.0);
   addDoubleOption("LWC", LWC, 0.001);
   addBoolOption("TRACK_PARTICLES", eulerianPT, false);
+  addBoolOption("WENO_PT", weno4PT, false);
   addBoolOption("SPLASH_PARTICLES", splashingPT, false);
   addBoolOption("PT_MULTIBIN", multibin, false);
   addDoubleListOption("MULTIBIN_MVD", nBins, MVD_multibin);

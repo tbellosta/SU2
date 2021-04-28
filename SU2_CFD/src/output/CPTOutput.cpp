@@ -161,6 +161,22 @@ void CPTOutput::SetVolumeOutputFields(CConfig *config){
   AddVolumeOutput("BETA", "CollEff", "SOLUTION", "Collection Efficiency");
   AddVolumeOutput("BETA_CORRECTED", "CollEff_Corrected", "SOLUTION", "Collection Efficiency Corrected for Splashing");
   
+  AddVolumeOutput("GRADIENT_ALPHA_X", "GradALPHA_x", "GRADIENT", "Least Squares Gradient x");
+  AddVolumeOutput("GRADIENT_ALPHA_Y", "GradALPHA_y", "GRADIENT", "Least Squares Gradient y");
+  if (nDim == 3) AddVolumeOutput("GRADIENT_ALPHA_Z", "GradALPHA_z", "GRADIENT", "Least Squares Gradient z");
+  
+  AddVolumeOutput("GRADIENT_U_X", "GradU_x", "GRADIENT", "Least Squares Gradient x");
+  AddVolumeOutput("GRADIENT_U_Y", "GradU_y", "GRADIENT", "Least Squares Gradient y");
+  if (nDim == 3) AddVolumeOutput("GRADIENT_U_Z", "GradU_z", "GRADIENT", "Least Squares Gradient z");
+  
+  AddVolumeOutput("GRADIENT_V_X", "GradV_x", "GRADIENT", "Least Squares Gradient x");
+  AddVolumeOutput("GRADIENT_V_Y", "GradV_y", "GRADIENT", "Least Squares Gradient y");
+  if (nDim == 3) AddVolumeOutput("GRADIENT_V_Z", "GradV_z", "GRADIENT", "Least Squares Gradient z");
+  
+  if (nDim == 3) AddVolumeOutput("GRADIENT_W_X", "GradW_x", "GRADIENT", "Least Squares Gradient x");
+  if (nDim == 3) AddVolumeOutput("GRADIENT_W_Y", "GradW_y", "GRADIENT", "Least Squares Gradient y");
+  if (nDim == 3) AddVolumeOutput("GRADIENT_W_Z", "GradW_z", "GRADIENT", "Least Squares Gradient z");
+
   if(config->GetMultiBin()){
     AddVolumeOutput("BETA_TOT", "CollEff_tot", "SOLUTION", "Total Collection Efficiency");
     AddVolumeOutput("BETA_CORRECTED_TOT", "CollEff_Corrected_tot", "SOLUTION", " Total Collection Efficiency Corrected for Splashing");
@@ -208,6 +224,23 @@ void CPTOutput::LoadVolumeData(CConfig *config, CGeometry *geometry, CSolver **s
   SetVolumeOutputValue("RES_ALPHA", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 0));
   SetVolumeOutputValue("RES_ALPHA-U", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 1));
   SetVolumeOutputValue("RES_ALPHA-V", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 2));
+  su2double **grad = solver[PT_SOL]->GetNodes()->GetGradient_Primitive(iPoint);
+
+  SetVolumeOutputValue("GRADIENT_ALPHA_X", iPoint, grad[0][0]);
+  SetVolumeOutputValue("GRADIENT_ALPHA_Y", iPoint, grad[0][1]);
+  if (nDim == 3) SetVolumeOutputValue("GRADIENT_ALPHA_Z", iPoint, grad[0][2]);
+  
+  SetVolumeOutputValue("GRADIENT_U_X", iPoint, grad[1][0]);
+  SetVolumeOutputValue("GRADIENT_U_Y", iPoint, grad[1][1]);
+  if (nDim == 3) SetVolumeOutputValue("GRADIENT_U_Z", iPoint, grad[1][2]);
+  
+  SetVolumeOutputValue("GRADIENT_V_X", iPoint, grad[2][0]);
+  SetVolumeOutputValue("GRADIENT_V_Y", iPoint, grad[2][1]);
+  if (nDim == 3) SetVolumeOutputValue("GRADIENT_V_Z", iPoint, grad[2][2]);
+
+  if (nDim == 3) SetVolumeOutputValue("GRADIENT_W_X", iPoint, grad[3][0]);
+  if (nDim == 3) SetVolumeOutputValue("GRADIENT_W_Y", iPoint, grad[3][1]);
+  if (nDim == 3) SetVolumeOutputValue("GRADIENT_W_Z", iPoint, grad[3][2]);
   //  SetVolumeOutputValue("RES_ALPHA-U", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,0));
   //  SetVolumeOutputValue("RES_ALPHA-V", iPoint, Node_PT->GetGradient_Primitive(iPoint,1,1));
   if (nDim == 3) SetVolumeOutputValue("RES_ALPHA-W", iPoint, solver[PT_SOL]->LinSysRes(iPoint, 3));

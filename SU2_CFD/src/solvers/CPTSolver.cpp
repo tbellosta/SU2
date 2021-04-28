@@ -90,7 +90,26 @@ CPTSolver::CPTSolver(CGeometry *geometry, CConfig *config, unsigned short iMesh)
   Residual_Max  = new su2double[nVar];  for (iVar = 0; iVar < nVar; iVar++) Residual_Max[iVar]  = 0.0;
   Res_Conv      = new su2double[nVar];  for (iVar = 0; iVar < nVar; iVar++) Res_Conv[iVar]      = 0.0;
   Res_Visc      = new su2double[nVar];  for (iVar = 0; iVar < nVar; iVar++) Res_Visc[iVar]      = 0.0;
-
+  if(config->GetWeno4PT()){
+    r_v = new su2double[nDim]; 
+    V_i_1 = new su2double[nVar];
+    V_j_1 = new su2double[nVar];
+    p1 = new su2double[nVar];
+    p2 = new su2double[nVar];
+    p3 = new su2double[nVar];
+    beta1 = new su2double[nVar];
+    beta2 = new su2double[nVar];
+    beta3 = new su2double[nVar];
+    om1 = new su2double[nVar];
+    om2 = new su2double[nVar];
+    om3 = new su2double[nVar];
+    om1_bar = new su2double[nVar];
+    om2_bar = new su2double[nVar];
+    om3_bar = new su2double[nVar];
+    V_plus = new su2double[nVar];
+    V_minus = new su2double[nVar];
+    tau = new su2double[nVar];
+  }
   /*--- Define some structures for locating max residuals ---*/
 
   Point_Max = new unsigned long[nVar];
@@ -244,17 +263,31 @@ CPTSolver::~CPTSolver(void) {
 
   unsigned short iMarker;
 
+  
+
   if (CollectionEfficiency != nullptr) {
     for (iMarker = 0; iMarker < nMarker; iMarker++) {
       delete [] CollectionEfficiency[iMarker];
     }
     delete [] CollectionEfficiency;
   }
+  if (CollectionEfficiencyTOT != nullptr) {
+    for (iMarker = 0; iMarker < nMarker; iMarker++) {
+      delete [] CollectionEfficiencyTOT[iMarker];
+    }
+    delete [] CollectionEfficiencyTOT;
+  }
   if (CollectionEfficiencyCorrectedSplashing != nullptr) {
     for (iMarker = 0; iMarker < nMarker; iMarker++) {
       delete [] CollectionEfficiencyCorrectedSplashing[iMarker];
     }
     delete [] CollectionEfficiencyCorrectedSplashing;
+  }
+  if (CollectionEfficiencyCorrectedSplashingTOT != nullptr) {
+    for (iMarker = 0; iMarker < nMarker; iMarker++) {
+      delete [] CollectionEfficiencyCorrectedSplashingTOT[iMarker];
+    }
+    delete [] CollectionEfficiencyCorrectedSplashingTOT;
   }
 
   delete nodes;
@@ -582,16 +615,24 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
   unsigned short iDim, iVar;
   unsigned long iEdge, iPoint, jPoint;
   bool muscl = (config->GetMUSCL_PT());
+  bool  weno4 = config->GetWeno4PT();
   bool limiter = (config->GetKind_SlopeLimit_PT() != NO_LIMITER);
   bool van_albada = (config->GetKind_SlopeLimit_PT() == VAN_ALBADA_EDGE);
-
+  
+  unsigned short imuscl=0;
   su2double V_cent, V_upw_i, V_upw_j, *Limiter_i, *Limiter_j, DV_i, DV_j;
 
     for (iEdge = 0; iEdge < geometry->GetnEdge(); iEdge++) {
+      
 
       /*--- Points in edge ---*/
       iPoint = geometry->edges->GetNode(iEdge,0);
       jPoint = geometry->edges->GetNode(iEdge,1);
+      
+      bool boundary_i = geometry->nodes->GetBoundary(iPoint);
+      bool boundary_j = geometry->nodes->GetBoundary(jPoint);
+      bool halo_i = !geometry->nodes->GetDomain(iPoint);
+      bool halo_j = !geometry->nodes->GetDomain(jPoint);
 
       Normal = geometry->edges->GetNormal(iEdge);
 
@@ -605,8 +646,10 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
       V_j = nodes->GetPrimitive(jPoint);
 
       /* Second order reconstruction */
-      if (muscl) {
-
+      if (muscl && !weno4  && !(boundary_i || boundary_j || halo_i || halo_j)) {
+        
+      //if (muscl && !weno4) {
+        imuscl++;
         for (iDim = 0; iDim < nDim; iDim++) {
           Vector_i[iDim] = 0.5*(geometry->nodes->GetCoord(jPoint, iDim) - geometry->nodes->GetCoord(iPoint, iDim));
         }
@@ -665,31 +708,205 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
         nodes->SetNon_Physical(jPoint, neg_alpha_j);
 
 
-//        numerics->SetPrimitive(neg_alpha_i? V_i : MUSCLSol_i,  neg_alpha_j? V_j : MUSCLSol_j);
+  //        numerics->SetPrimitive(neg_alpha_i? V_i : MUSCLSol_i,  neg_alpha_j? V_j : MUSCLSol_j);
+        
+
         V_i = (neg_alpha_i) ? V_i : MUSCLSol_i;
         V_j = (neg_alpha_j) ? V_j : MUSCLSol_j;
 
-//        V_i = (small_alpha_i) ? nodes->GetPrimitive(iPoint) : V_i;
-//        V_j = (small_alpha_j) ? nodes->GetPrimitive(jPoint) : V_j;
+  //        V_i = (small_alpha_i) ? nodes->GetPrimitive(iPoint) : V_i;
+  //        V_j = (small_alpha_j) ? nodes->GetPrimitive(jPoint) : V_j;
+
+      }
+      
+      
+      //boundary_i =false;
+      //boundary_j=false;
+      if(weno4 && !(boundary_i || boundary_j || halo_i || halo_j)){
+      //if(weno4){
+        
+        //reconstruct solution at interface on side i
+        ComputeWeno4(iEdge, iPoint, jPoint, V_minus, geometry, limiter, van_albada);
+        //reconstruct solution at interface on side j
+        ComputeWeno4(iEdge, jPoint, iPoint, V_plus, geometry, limiter, van_albada);
+
+        bool neg_alpha_i = (V_minus[0] <= 0.0);
+        bool neg_alpha_j = (V_plus[0] <= 0.0);
+        //cout << "\n"<<rank<<") alpha- = " << V_minus[0];
+        //cout << "\n"<<rank<<") alpha+ = " << V_plus[0]<<"\n";
+        //neg_alpha_i = false;
+        //neg_alpha_j = false;
+
+        bool small_alpha_i = (V_i[0] < 1e-4);
+        bool small_alpha_j = (V_j[0] < 1e-4);
+
+        nodes->SetNon_Physical(iPoint, neg_alpha_i);
+        nodes->SetNon_Physical(jPoint, neg_alpha_j);
+        
+        
+        V_i = (neg_alpha_i) ? V_i : V_minus;
+        V_j = (neg_alpha_j) ? V_j : V_plus;
+        
 
       }
 
       numerics->SetPrimitive(V_i, V_j);
-
+      
       Relax = ComputeRelaxationConstant(V_i, V_j, UnitNormal);
       numerics->SetRelaxationConstant(Relax);
-
+      
       numerics->ComputeResidual(Residual, Jacobian_i, Jacobian_j, config);
-
+      
       LinSysRes.AddBlock(iPoint, Residual);
       LinSysRes.SubtractBlock(jPoint, Residual);
-
+      
       /*--- Implicit part ---*/
-
       Jacobian.UpdateBlocks(iEdge, iPoint, jPoint, Jacobian_i, Jacobian_j);
-    }
+        
+      }
+    //cout<<"\n\n\n nEdges MUSCL = "<<imuscl<<"\n\n\n";
+      
 
 }
+
+
+void CPTSolver::ComputeWeno4(unsigned long iEdge,unsigned long  iPoint,unsigned long  jPoint,
+                            su2double *V_ij,CGeometry *geometry, bool limiter, bool van_albada){
+
+  su2double **Gradient_i = nodes->GetGradient_Primitive(iPoint);
+  su2double **Gradient_j = nodes->GetGradient_Primitive(jPoint); 
+  su2double V_cent, Project_Grad_i, Project_Grad_j, *Limiter_i,*Limiter_j;
+  if (limiter) {
+    Limiter_i = nodes->GetLimiter_Primitive(iPoint);
+    Limiter_j = nodes->GetLimiter_Primitive(jPoint);
+  }
+  
+
+  unsigned short iDim, iVar;
+  //vector from i to interface
+  for (iDim = 0; iDim < nDim; iDim++) r_v[iDim] = 0.0;
+  //primitives at i,j, i-1, j+1
+  su2double *V_i, *V_j;
+  //non linear constants
+  //linear constants (g1+g2+g3=1) && (g3!=0)
+  g1 = 3.0/10.0;
+  g2 = 3.0/5.0;
+  g3 = 1.0 - g1 - g2;
+  //smoothness indicators
+  //poly
+  su2double eps = 1e-18;
+  //for accuracy requirements, m must be greater than 5/3
+  //su2double m = 5.0/3.0; 
+  su2double m = 2; 
+
+
+
+  V_i = nodes->GetPrimitive(iPoint);
+  V_j = nodes->GetPrimitive(jPoint); 
+  
+
+  for (iDim = 0; iDim < nDim; iDim++) {
+    r_v[iDim] = 0.5*(geometry->nodes->GetCoord(jPoint, iDim) - geometry->nodes->GetCoord(iPoint, iDim));
+  }
+  
+  
+  //slope limiter
+  if (limiter) {
+    for(iVar=0; iVar<nVar; iVar++){
+      if (van_albada) {
+        Project_Grad_i = 0.0; Project_Grad_j = 0.0;
+        for (iDim = 0; iDim < nDim; iDim++) {
+          Project_Grad_i += r_v[iDim]*Gradient_i[iVar][iDim];
+          Project_Grad_j += r_v[iDim]*Gradient_j[iVar][iDim];
+        }
+        /* Van Albada slope limiter */
+        V_cent = V_j[iVar] - V_i[iVar];
+        Limiter_i[iVar] = V_cent * (2.0 * Project_Grad_i + V_cent) / (4 * pow(Project_Grad_i, 2) + pow(V_cent, 2) + EPS);
+        Limiter_j[iVar] = V_cent * (2.0 * Project_Grad_j + V_cent) / (4 * pow(Project_Grad_j, 2) + pow(V_cent, 2) + EPS);
+      }
+    }
+  }
+  
+
+  //compute extrapolated "fake" neighbouring point i-1, j+1
+  
+  for (iVar = 0; iVar < nVar; iVar++) { 
+    if(limiter){
+      V_i_1[iVar] = V_j[iVar] - 4.0 * GeometryToolbox::DotProduct(nDim, Gradient_i[iVar], r_v) * Limiter_i[iVar];
+      V_j_1[iVar] = V_i[iVar] + 4.0 * GeometryToolbox::DotProduct(nDim, Gradient_j[iVar], r_v) * Limiter_j[iVar];
+    }else{
+      V_i_1[iVar] = V_j[iVar] - 4.0 * GeometryToolbox::DotProduct(nDim, Gradient_i[iVar], r_v);
+      V_j_1[iVar] = V_i[iVar] + 4.0 * GeometryToolbox::DotProduct(nDim, Gradient_j[iVar], r_v);
+    }
+  }
+
+  
+
+  //compute poly
+  
+  for (iVar = 0; iVar < nVar; iVar++) {
+    p1[iVar] = 0.5 * V_i[iVar] + 0.5 * V_j[iVar];
+    p2[iVar] = 1.5 * V_i[iVar] - 0.5 * V_i_1[iVar];
+    p3[iVar] = - (1.0/12.0) * V_i_1[iVar] + (7.0/12.0) * V_i[iVar] +  (7.0/12.0) * V_j[iVar] - (1.0/12.0) * V_j_1[iVar];
+  }
+  //compute smoothness indicators
+  for (iVar = 0; iVar < nVar; iVar++) { 
+    
+    beta1[iVar] = (V_j[iVar] - V_i[iVar]) * (V_j[iVar] - V_i[iVar]);
+    beta2[iVar] = (V_i[iVar] - V_i_1[iVar]) * (V_i[iVar] - V_i_1[iVar]);
+    beta3[iVar] = (13.0/12.0) * (V_i_1[iVar] - 2.0 * V_i[iVar] + V_j[iVar]) * (V_i_1[iVar] - 2.0 * V_i[iVar] + V_j[iVar]);
+    beta3[iVar] += (1.0/36.0) * (- 2.0 * V_i_1[iVar] - 3.0 * V_i[iVar] + 6.0 * V_j[iVar] - V_j_1[iVar]) * (- 2.0 * V_i_1[iVar] - 3.0 * V_i[iVar] + 6.0 * V_j[iVar] - V_j_1[iVar]);
+    beta3[iVar] += (781.0/720.0) * (- V_i_1[iVar] + 3.0 * V_i[iVar] - 3.0 * V_j[iVar] + V_j_1[iVar]) * (- V_i_1[iVar] + 3.0 * V_i[iVar] - 3.0 * V_j[iVar] + V_j_1[iVar]);
+  }
+  
+
+  for (iVar = 0; iVar < nVar; iVar++) { 
+    tau[iVar] = (abs(beta3[iVar] - beta1[iVar]) + abs(beta3[iVar] - beta2[iVar])) / 2.0;
+    tau[iVar] = pow(tau[iVar], m);
+  }
+
+  //compute non linear constants
+  for (iVar = 0; iVar < nVar; iVar++) { 
+    om1_bar[iVar] = g1 * (1.0 + tau[iVar] / (beta1[iVar] + eps));
+    om2_bar[iVar] = g2 * (1.0 + tau[iVar] / (beta2[iVar] + eps));
+    om3_bar[iVar] = g3 * (1.0 + tau[iVar] / (beta3[iVar] + eps));
+
+    om_bar_tot = om1_bar[iVar] + om2_bar[iVar] + om3_bar[iVar];
+
+    om1[iVar] = om1_bar[iVar] / om_bar_tot;
+    om2[iVar] = om2_bar[iVar] / om_bar_tot;
+    om3[iVar] = om3_bar[iVar] / om_bar_tot;
+  }
+  
+  for (iVar = 0; iVar < nVar; iVar++) {
+    V_ij[iVar] = om1[iVar] * p1[iVar] + om2[iVar] * p2[iVar];
+    V_ij[iVar] += om3[iVar] * ((1.0/g3) * p3[iVar] - (g1/g3) * p1[iVar] - (g2/g3) * p2[iVar]);
+  }
+
+  
+  
+
+  //clear memory
+  /*delete [] V_i_1;
+  delete [] V_j_1;
+  delete [] p1;
+  delete [] p2;
+  delete [] p3;
+  delete [] beta1;
+  delete [] beta2;
+  delete [] beta3;
+  delete [] om1;
+  delete [] om2;
+  delete [] om3;
+  delete [] om1_bar;
+  delete [] om2_bar;
+  delete [] om3_bar;
+  delete [] tau;
+  delete [] r_v;*/
+
+
+}
+
 
 void CPTSolver::Viscous_Residual(CGeometry *geometry, CSolver **solver_container, CNumerics **numerics_container,
                                    CConfig *config, unsigned short iMesh, unsigned short iRKStep) {
@@ -2994,7 +3211,8 @@ void CPTSolver::CorrectBoundaryGradient(CGeometry* geometry, const CConfig* conf
 
   unsigned long iMarker, iDim, iVar, iPoint, iVertex;
   unsigned short KindBC;
-  bool applyCorrection = false;
+  //trying for WENO
+  bool applyCorrection = true;
 
   su2double *Normal, UnitNormal[3], projVel_i, Area, Correction, Tangential[3], TangentialNorm;
   su2double ProjGradient, ProjNormVelGrad, ProjTangVelGrad, **Gradient, *GradNormVel, *GradTangVel;

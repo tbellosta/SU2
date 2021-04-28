@@ -62,6 +62,18 @@ class CPTSolver final : public CSolver {
   su2double* binMVD_v;
   su2double* binCFL_v;
 
+  //temporary variables for WENO
+  su2double om_bar_tot;
+  su2double g1,g2,g3;  
+  su2double *beta1,*beta2,*beta3;  
+  su2double *om1,*om2,*om3; 
+  su2double *om1_bar,*om2_bar,*om3_bar;
+  su2double *r_v;  
+  su2double *V_plus;
+  su2double *V_minus;
+  su2double *p1,*p2,*p3;
+  su2double *tau, *V_i_1, *V_j_1;
+
   CPTVariable* nodes = nullptr;  /*!< \brief The highest level in the variable hierarchy this solver can safely use. */
 
   /*!
@@ -315,6 +327,9 @@ class CPTSolver final : public CSolver {
                     bool runtimeSplashing);
 
   void SetBin( unsigned short indexBin);
+
+  void ComputeWeno4(unsigned long iEdge,unsigned long  iPoint,unsigned long  jPoint,
+                            su2double *V_ij,CGeometry *geometry, bool limiter, bool van_albada);
   void AdaptCFLNumberPT(CGeometry **geometry,
                              CSolver   ***solver_container,
                              CConfig   *config);

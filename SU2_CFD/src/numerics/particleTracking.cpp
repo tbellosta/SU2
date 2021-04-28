@@ -118,6 +118,7 @@ void CConv_PT::GetProjFluxJacobianPT(const su2double* VolFraction, const su2doub
 }
 
 
+
 CUpwRusanov_PT::CUpwRusanov_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) :
     CConv_PT(val_nDim, val_nVar, config) { }
 
@@ -219,6 +220,7 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
   Density_i = V_i[0];
   Density_j = V_j[0];
 
+
   for (iDim = 0; iDim < nDim; iDim++) {
     Velocity_i[iDim] = V_i[iDim+1];
     Velocity_j[iDim] = V_j[iDim+1];
@@ -229,6 +231,7 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
 
   Pressure_i = 0.0;
   Pressure_j = 0.0;
+  
 
   sL = projVel_i - (a/Density_i);
   sM = ( projVel_i + projVel_j) / 2;
@@ -263,17 +266,32 @@ void CUpwGodunov_PT::ComputeResidual(su2double *val_residual, su2double **val_Ja
   for (int iVar = 0; iVar < nVar; ++iVar) val_residual[iVar] *= Area;
 
   if (implicit) {
-
     for (int iVar = 0; iVar < nVar; ++iVar) {
       for (int jVar = 0; jVar < nVar; ++jVar) {
         val_Jacobian_i[iVar][jVar] = 0.0;
         val_Jacobian_j[iVar][jVar] = 0.0;
       }
     }
+
+    GetProjFluxJacobianPT(&Density_i, Velocity_i, &Pressure_i, Normal, Proj_Jac_i);
+    GetProjFluxJacobianPT(&Density_j, Velocity_j, &Pressure_j, Normal, Proj_Jac_j);
+
+    for (int iVar = 0; iVar < nVar; ++iVar) {
+      for (int jVar = 0; jVar < nVar; ++jVar) {
+        val_Jacobian_i[iVar][jVar] = 0.5*Proj_Jac_i[iVar][jVar];
+        val_Jacobian_j[iVar][jVar] = 0.5*Proj_Jac_j[iVar][jVar];
+
+
+        //missing derivative of intermediate state wrt R,L states
+      }
+    }
+
+    
   }
 
 
 }
+
 
 
 CUpwFDS_PT::CUpwFDS_PT(unsigned short val_nDim, unsigned short val_nVar, CConfig *config) :
@@ -353,6 +371,7 @@ CUpwHLLC_PT::CUpwHLLC_PT(unsigned short val_nDim, unsigned short val_nVar, CConf
 }
 
 void CUpwHLLC_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacobian_i, su2double **val_Jacobian_j, CConfig *config) {
+
 
   su2double projVel_i = 0;
   su2double projVel_j = 0;
@@ -483,7 +502,9 @@ void CUpwHLLC_PT::ComputeResidual(su2double *val_residual, su2double **val_Jacob
     aSplit = Density_j;
   }
 
-  if (aSplit <= 0) {throw std::runtime_error("error");}
+  if (aSplit <= 0) {throw std::runtime_error("aSplit < 0");}
+
+
 
   for (int iVar = 0; iVar < nVar; ++iVar) val_residual[iVar] *= Area;
 

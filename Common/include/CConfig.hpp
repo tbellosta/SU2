@@ -1187,6 +1187,7 @@ private:
 
   su2double particleSize;
   bool eulerianPT;
+  bool weno4PT;
   
   bool splashingPT; //Are splashing droplets gonna be simulated
   su2double dropletDynamicViscosity;
@@ -1610,6 +1611,10 @@ public:
 
   bool GetEulerianPaticleTracking(void) const { 
   return eulerianPT; 
+  }
+  
+  bool GetWeno4PT(void) const { 
+  return weno4PT; 
   }
   
   bool GetSplashingPT(void) const { 
