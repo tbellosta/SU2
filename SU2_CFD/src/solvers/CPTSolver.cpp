@@ -646,9 +646,9 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
       V_j = nodes->GetPrimitive(jPoint);
 
       /* Second order reconstruction */
-      if (muscl && !weno4  && !(boundary_i || boundary_j || halo_i || halo_j)) {
-        
-      //if (muscl && !weno4) {
+      if (muscl && !(boundary_i || boundary_j || halo_i || halo_j)) {
+        //Compute 2nd order reconstruction for all FVs that are not
+        //on boundaries (physical or core domain)
         imuscl++;
         for (iDim = 0; iDim < nDim; iDim++) {
           Vector_i[iDim] = 0.5*(geometry->nodes->GetCoord(jPoint, iDim) - geometry->nodes->GetCoord(iPoint, iDim));
@@ -732,8 +732,25 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
 
         bool neg_alpha_i = (V_minus[0] <= 0.0);
         bool neg_alpha_j = (V_plus[0] <= 0.0);
-        //cout << "\n"<<rank<<") alpha- = " << V_minus[0];
-        //cout << "\n"<<rank<<") alpha+ = " << V_plus[0]<<"\n";
+
+
+        /*if((V_minus[0]<V_i[0] && V_minus[0]<V_j[0])||(V_minus[0]>V_i[0] && V_minus[0]>V_j[0])){
+
+          cout << "\n"<<rank<<") alpha_i = " << V_i[0];
+          cout << "\n"<<rank<<") alpha- = " << V_minus[0];
+          cout << "\n"<<rank<<") alpha_j = " << V_j[0];
+          cout << "\n"<<rank<<") alpha+ = " << V_plus[0]<<"\n";
+
+        }
+        
+        if((V_plus[0]<V_i[0] && V_plus[0]<V_j[0])||(V_plus[0]>V_i[0] && V_plus[0]>V_j[0])){
+
+          cout << "\n"<<rank<<") alpha_i = " << V_i[0];
+          cout << "\n"<<rank<<") alpha- = " << V_minus[0];
+          cout << "\n"<<rank<<") alpha_j = " << V_j[0];
+          cout << "\n"<<rank<<") alpha+ = " << V_plus[0]<<"\n";
+
+        }*/
         //neg_alpha_i = false;
         //neg_alpha_j = false;
 
@@ -775,6 +792,8 @@ void CPTSolver::ComputeWeno4(unsigned long iEdge,unsigned long  iPoint,unsigned 
 
   su2double **Gradient_i = nodes->GetGradient_Primitive(iPoint);
   su2double **Gradient_j = nodes->GetGradient_Primitive(jPoint); 
+  //su2double **Gradient_i = nodes->GetGradient_Reconstruction(iPoint);
+  //su2double **Gradient_j = nodes->GetGradient_Reconstruction(jPoint); 
   su2double V_cent, Project_Grad_i, Project_Grad_j, *Limiter_i,*Limiter_j;
   if (limiter) {
     Limiter_i = nodes->GetLimiter_Primitive(iPoint);
@@ -796,8 +815,8 @@ void CPTSolver::ComputeWeno4(unsigned long iEdge,unsigned long  iPoint,unsigned 
   //poly
   su2double eps = 1e-18;
   //for accuracy requirements, m must be greater than 5/3
-  //su2double m = 5.0/3.0; 
-  su2double m = 2; 
+  su2double m = 6.0/3.0; 
+  //su2double m = 1.0;  //with m=1.0 it converges but yields identical results to muscl with a requirement for a much lower CFL
 
 
 
@@ -821,8 +840,8 @@ void CPTSolver::ComputeWeno4(unsigned long iEdge,unsigned long  iPoint,unsigned 
         }
         /* Van Albada slope limiter */
         V_cent = V_j[iVar] - V_i[iVar];
-        Limiter_i[iVar] = V_cent * (2.0 * Project_Grad_i + V_cent) / (4 * pow(Project_Grad_i, 2) + pow(V_cent, 2) + EPS);
-        Limiter_j[iVar] = V_cent * (2.0 * Project_Grad_j + V_cent) / (4 * pow(Project_Grad_j, 2) + pow(V_cent, 2) + EPS);
+        Limiter_i[iVar] = V_cent * (2.0 * Project_Grad_i + V_cent) / (4.0 * pow(Project_Grad_i, 2.0) + pow(V_cent, 2.0) + EPS);
+        Limiter_j[iVar] = V_cent * (2.0 * Project_Grad_j + V_cent) / (4.0 * pow(Project_Grad_j, 2.0) + pow(V_cent, 2.0) + EPS);
       }
     }
   }
@@ -861,8 +880,8 @@ void CPTSolver::ComputeWeno4(unsigned long iEdge,unsigned long  iPoint,unsigned 
   
 
   for (iVar = 0; iVar < nVar; iVar++) { 
-    tau[iVar] = (abs(beta3[iVar] - beta1[iVar]) + abs(beta3[iVar] - beta2[iVar])) / 2.0;
-    tau[iVar] = pow(tau[iVar], m);
+    su2double tmp = (abs(beta3[iVar] - beta1[iVar]) + abs(beta3[iVar] - beta2[iVar])) / 2.0;
+    tau[iVar] = pow(tmp, m);
   }
 
   //compute non linear constants
@@ -3212,7 +3231,7 @@ void CPTSolver::CorrectBoundaryGradient(CGeometry* geometry, const CConfig* conf
   unsigned long iMarker, iDim, iVar, iPoint, iVertex;
   unsigned short KindBC;
   //trying for WENO
-  bool applyCorrection = true;
+  bool applyCorrection = false;
 
   su2double *Normal, UnitNormal[3], projVel_i, Area, Correction, Tangential[3], TangentialNorm;
   su2double ProjGradient, ProjNormVelGrad, ProjTangVelGrad, **Gradient, *GradNormVel, *GradTangVel;
