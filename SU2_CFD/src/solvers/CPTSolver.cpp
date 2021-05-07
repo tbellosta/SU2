@@ -629,8 +629,12 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
       iPoint = geometry->edges->GetNode(iEdge,0);
       jPoint = geometry->edges->GetNode(iEdge,1);
       
-      bool boundary_i = geometry->nodes->GetBoundary(iPoint);
-      bool boundary_j = geometry->nodes->GetBoundary(jPoint);
+      //check if point is on a non wall boundary
+      //bool boundary_i = geometry->nodes->GetPhysicalBoundary(iPoint) && !geometry->nodes->GetSolidBoundary(iPoint) ;
+      //bool boundary_j = geometry->nodes->GetPhysicalBoundary(jPoint) && !geometry->nodes->GetSolidBoundary(jPoint) ;
+      bool boundary_i = geometry->nodes->GetPhysicalBoundary(iPoint);
+      bool boundary_j = geometry->nodes->GetPhysicalBoundary(jPoint);
+      
       bool halo_i = !geometry->nodes->GetDomain(iPoint);
       bool halo_j = !geometry->nodes->GetDomain(jPoint);
 
@@ -646,7 +650,9 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
       V_j = nodes->GetPrimitive(jPoint);
 
       /* Second order reconstruction */
-      if (muscl && !(boundary_i || boundary_j || halo_i || halo_j)) {
+      //if (muscl && !weno4 && !(boundary_i || boundary_j || halo_i || halo_j)) {
+      if (muscl && !weno4 && !(boundary_i || boundary_j)) {
+      //if (muscl && !weno4) {
         //Compute 2nd order reconstruction for all FVs that are not
         //on boundaries (physical or core domain)
         imuscl++;
@@ -720,11 +726,9 @@ void CPTSolver::Upwind_Residual(CGeometry *geometry, CSolver **solver_container,
       }
       
       
-      //boundary_i =false;
-      //boundary_j=false;
-      if(weno4 && !(boundary_i || boundary_j || halo_i || halo_j)){
-      //if(weno4){
-        
+      if (weno4 && !(boundary_i || boundary_j)) {
+      //if (weno4) {
+      
         //reconstruct solution at interface on side i
         ComputeWeno4(iEdge, iPoint, jPoint, V_minus, geometry, limiter, van_albada);
         //reconstruct solution at interface on side j
@@ -808,14 +812,14 @@ void CPTSolver::ComputeWeno4(unsigned long iEdge,unsigned long  iPoint,unsigned 
   su2double *V_i, *V_j;
   //non linear constants
   //linear constants (g1+g2+g3=1) && (g3!=0)
-  g1 = 3.0/10.0;
-  g2 = 3.0/5.0;
-  g3 = 1.0 - g1 - g2;
+  g3 = 0.1;//0.1
+  g1 = 0.6;//0.6
+  g2 = 1.0 - g1 - g3;
   //smoothness indicators
   //poly
   su2double eps = 1e-18;
-  //for accuracy requirements, m must be greater than 5/3
-  su2double m = 6.0/3.0; 
+  //for accuracy requirements, m must be greater than 5.0/3.0
+  su2double m = 5.0/3.0; 
   //su2double m = 1.0;  //with m=1.0 it converges but yields identical results to muscl with a requirement for a much lower CFL
 
 
@@ -3356,11 +3360,11 @@ void CPTSolver::CorrectBoundaryGradient(CGeometry* geometry, const CConfig* conf
           for (iVar = 0; iVar < nPrimVar; ++iVar)
             for (iDim = 0; iDim < nDim; ++iDim)
               nodes->SetGradient_Primitive(iPoint,iVar,iDim,Gradient[iVar][iDim]);
-
         }
       }
     }
   }
+
 
   for (iVar= 0; iVar < nPrimVar; ++iVar) delete [] Gradient[iVar];
   delete [] Gradient;

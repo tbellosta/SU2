@@ -382,8 +382,9 @@ class CPTSolver final : public CSolver {
        
     computeGradientsGreenGauss(this, PRIMITIVE_GRADIENT, PERIODIC_PRIM_GG, *geometry, *config, primitives, 0,
                                nPrimVar, gradient);
-       
-    CorrectBoundaryGradient(geometry,config);
+    
+    //causes weird stuff on core boundaries
+    //CorrectBoundaryGradient(geometry,config);
   }
 
 
@@ -406,8 +407,8 @@ class CPTSolver final : public CSolver {
 
     computeGradientsLeastSquares(this, PRIMITIVE_GRADIENT, kindPeriodicComm, *geometry, *config, weighted, primitives, 0,
                                  nPrimVar, gradient, rmatrix);
-
-    CorrectBoundaryGradient(geometry,config);
+    //causes weird stuff on core boundaries
+    //CorrectBoundaryGradient(geometry,config);
 
   }
 
